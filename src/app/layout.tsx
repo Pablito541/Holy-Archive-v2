@@ -22,6 +22,10 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Holy Archive",
   },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+  }
 };
 
 export default function RootLayout({

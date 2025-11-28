@@ -15,62 +15,102 @@ import { ItemDetailView } from '../components/views/ItemDetailView';
 import { ExportView } from '../components/views/ExportView';
 import { ActionMenu } from '../components/views/ActionMenu';
 import { Navigation } from '../components/views/Navigation';
+import { ToastProvider, useToast } from '../components/ui/Toast';
 
-export default function Home() {
+function AppContent() {
   const [user, setUser] = useState<any>(null);
   const [view, setView] = useState('login');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'view' | 'sell'>('view');
-
   const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
-  // 1. Laden der Daten (Hybrid: Supabase oder LocalStorage)
+  // 1. Auth State Listener
   useEffect(() => {
-    async function loadData() {
-      if (supabase) {
-        // Lade von DB
-        const { data, error } = await supabase.from('items').select('*').order('created_at', { ascending: false });
-        if (data && !error) {
-          // Mappe DB-Felder auf unser Interface (CamelCase conversion falls nötig, hier sind die DB Felder im SQL snake_case)
-          const mappedItems: Item[] = data.map((d: any) => ({
-            id: d.id,
-            brand: d.brand,
-            model: d.model,
-            category: d.category,
-            condition: d.condition,
-            status: d.status,
-            purchasePriceEur: d.purchase_price_eur,
-            purchaseDate: d.purchase_date,
-            purchaseSource: d.purchase_source,
-            salePriceEur: d.sale_price_eur,
-            saleDate: d.sale_date,
-            saleChannel: d.sale_channel,
-            platformFeesEur: d.platform_fees_eur,
-            shippingCostEur: d.shipping_cost_eur,
-            reservedFor: d.reserved_for,
-            reservedUntil: d.reserved_until,
-            imageUrls: d.image_urls || [],
-            notes: d.notes,
-            createdAt: d.created_at
-          }));
-          setItems(mappedItems);
-        }
-      } else {
-        // Lade von LocalStorage
-        try {
-          const saved = localStorage.getItem('vintage_items');
-          if (saved) setItems(JSON.parse(saved));
-        } catch (e) { console.error(e); }
-      }
+    if (!supabase) {
+      setLoading(false);
+      return;
     }
-    loadData();
+
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setView('dashboard');
+        loadData(session.user.id);
+      } else {
+        setView('login');
+      }
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setView('dashboard');
+        loadData(session.user.id);
+      } else {
+        setView('login');
+        setItems([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // 2. Speichern / Update Logik
+  // 2. Laden der Daten
+  async function loadData(userId: string) {
+    if (!supabase) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const mappedItems: Item[] = data.map((d: any) => ({
+          id: d.id,
+          brand: d.brand,
+          model: d.model,
+          category: d.category,
+          condition: d.condition,
+          status: d.status,
+          purchasePriceEur: d.purchase_price_eur,
+          purchaseDate: d.purchase_date,
+          purchaseSource: d.purchase_source,
+          salePriceEur: d.sale_price_eur,
+          saleDate: d.sale_date,
+          saleChannel: d.sale_channel,
+          platformFeesEur: d.platform_fees_eur,
+          shippingCostEur: d.shipping_cost_eur,
+          reservedFor: d.reserved_for,
+          reservedUntil: d.reserved_until,
+          imageUrls: d.image_urls || [],
+          notes: d.notes,
+          createdAt: d.created_at
+        }));
+        setItems(mappedItems);
+      }
+    } catch (error: any) {
+      console.error('Error loading items:', error);
+      showToast('Fehler beim Laden der Daten', 'error');
+    }
+  }
+
+  // 3. Speichern / Update Logik
   const handleCreateItem = async (data: Partial<Item>) => {
+    if (!user || !supabase) return;
+
     // DB Format
     const dbItem = {
+      user_id: user.id, // WICHTIG: User Ownership
       brand: data.brand || 'Unknown',
       model: data.model || '',
       category: data.category || 'bag',
@@ -83,9 +123,12 @@ export default function Home() {
       notes: data.notes || ''
     };
 
-    if (supabase) {
+    try {
       const { data: inserted, error } = await supabase.from('items').insert(dbItem).select().single();
-      if (inserted && !error) {
+
+      if (error) throw error;
+
+      if (inserted) {
         const newItem: Item = {
           id: inserted.id,
           brand: inserted.brand,
@@ -108,37 +151,37 @@ export default function Home() {
           createdAt: inserted.created_at
         };
         setItems(prev => [newItem, ...prev]);
+        showToast('Artikel erfolgreich angelegt', 'success');
+        setView('inventory');
+        setSelectionMode('view');
       }
-    } else {
-      // Local Fallback
-      const newItem: Item = {
-        ...data,
-        id: generateId(),
-        status: 'in_stock',
-        createdAt: new Date().toISOString()
-      } as Item;
-      setItems(prev => [newItem, ...prev]);
-      localStorage.setItem('vintage_items', JSON.stringify([newItem, ...items]));
+    } catch (error: any) {
+      console.error('Error creating item:', error);
+      showToast('Fehler beim Erstellen: ' + error.message, 'error');
     }
-
-    setView('inventory');
-    setSelectionMode('view');
   };
 
   const handleDeleteItem = async (id: string) => {
+    if (!supabase) return;
+
     if (confirm('Wirklich löschen?')) {
-      if (supabase) {
-        await supabase.from('items').delete().eq('id', id);
+      try {
+        const { error } = await supabase.from('items').delete().eq('id', id);
+        if (error) throw error;
+
+        const newItems = items.filter(i => i.id !== id);
+        setItems(newItems);
+        showToast('Artikel gelöscht', 'info');
+        setView('inventory');
+      } catch (error: any) {
+        console.error('Error deleting item:', error);
+        showToast('Fehler beim Löschen', 'error');
       }
-      const newItems = items.filter(i => i.id !== id);
-      setItems(newItems);
-      if (!supabase) localStorage.setItem('vintage_items', JSON.stringify(newItems));
-      setView('inventory');
     }
   };
 
   const handleSellItem = async (saleData: Partial<Item>) => {
-    if (!selectedItemId) return;
+    if (!selectedItemId || !supabase) return;
 
     const dbUpdate = {
       status: 'sold',
@@ -151,54 +194,63 @@ export default function Home() {
       reserved_until: null
     };
 
-    if (supabase) {
-      await supabase.from('items').update(dbUpdate).eq('id', selectedItemId);
+    try {
+      const { error } = await supabase.from('items').update(dbUpdate).eq('id', selectedItemId);
+      if (error) throw error;
+
+      setItems(prev => prev.map(item => {
+        if (item.id === selectedItemId) {
+          return {
+            ...item,
+            ...saleData,
+            status: 'sold',
+            reservedFor: undefined,
+            reservedUntil: undefined
+          };
+        }
+        return item;
+      }));
+
+      showToast('Artikel verkauft!', 'success');
+      setView('dashboard');
+    } catch (error: any) {
+      console.error('Error selling item:', error);
+      showToast('Fehler beim Verkauf', 'error');
     }
-
-    setItems(prev => prev.map(item => {
-      if (item.id === selectedItemId) {
-        return {
-          ...item,
-          ...saleData,
-          status: 'sold',
-          reservedFor: undefined,
-          reservedUntil: undefined
-        };
-      }
-      return item;
-    }));
-
-    if (!supabase) {
-      // update local storage logic omitted for brevity in hybrid mode if mostly using supabase
-    }
-
-    setView('dashboard');
   };
 
   const handleReserveItem = async (id: string, name: string, days: number) => {
+    if (!supabase) return;
+
     const until = new Date();
     until.setDate(until.getDate() + days);
     const isoDate = until.toISOString();
 
-    if (supabase) {
-      await supabase.from('items').update({
+    try {
+      const { error } = await supabase.from('items').update({
         status: 'reserved',
         reserved_for: name,
         reserved_until: isoDate
       }).eq('id', id);
-    }
 
-    setItems(prev => prev.map(item => {
-      if (item.id === id) {
-        return {
-          ...item,
-          status: 'reserved',
-          reservedFor: name,
-          reservedUntil: isoDate
-        };
-      }
-      return item;
-    }));
+      if (error) throw error;
+
+      setItems(prev => prev.map(item => {
+        if (item.id === id) {
+          return {
+            ...item,
+            status: 'reserved',
+            reservedFor: name,
+            reservedUntil: isoDate
+          };
+        }
+        return item;
+      }));
+      showToast('Artikel reserviert', 'info');
+    } catch (error: any) {
+      console.error('Error reserving item:', error);
+      showToast('Fehler beim Reservieren', 'error');
+    }
   };
 
   const handleAction = (action: 'buy' | 'sell') => {
@@ -218,9 +270,13 @@ export default function Home() {
   }, [view]);
 
   let content;
-  const showNav = ['dashboard', 'inventory', 'export'].includes(view);
+  const showNav = ['dashboard', 'inventory', 'export'].includes(view) && !!user;
 
-  if (!user) return <LoginView onLogin={() => { setUser({ name: 'Admin' }); setView('dashboard'); }} />;
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#fafaf9]"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-stone-900"></div></div>;
+  }
+
+  if (!user) return <LoginView onLogin={() => { }} />; // onLogin handled by auth state listener
 
   switch (view) {
     case 'dashboard': content = <DashboardView items={items} />; break;
@@ -271,5 +327,13 @@ export default function Home() {
       {showNav && <Navigation currentView={view} setView={setView} onOpenAction={() => setShowActionMenu(true)} />}
       {showActionMenu && <ActionMenu onClose={() => setShowActionMenu(false)} onAction={handleAction} />}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
