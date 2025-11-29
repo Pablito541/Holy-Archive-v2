@@ -26,14 +26,41 @@ export default function Home() {
 
   const [items, setItems] = useState<Item[]>([]);
 
-  // 1. Laden der Daten (Hybrid: Supabase oder LocalStorage)
+  // 1. Auth & Data Loading
+  useEffect(() => {
+    // Check active session
+    if (supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        if (session?.user) setView('dashboard');
+      });
+
+      // Listen for changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user && view === 'login') setView('dashboard');
+        else if (!session?.user) setView('login');
+      });
+
+      return () => subscription.unsubscribe();
+    } else {
+      // Dev mode without Supabase
+      const savedUser = localStorage.getItem('holy_user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+        setView('dashboard');
+      }
+    }
+  }, []);
+
   useEffect(() => {
     async function loadData() {
       if (supabase) {
+        if (!user) return; // Wait for auth
+
         // Lade von DB
         const { data, error } = await supabase.from('items').select('*').order('created_at', { ascending: false });
         if (data && !error) {
-          // Mappe DB-Felder auf unser Interface (CamelCase conversion falls nötig, hier sind die DB Felder im SQL snake_case)
           const mappedItems: Item[] = data.map((d: any) => ({
             id: d.id,
             brand: d.brand,
@@ -66,7 +93,7 @@ export default function Home() {
       }
     }
     loadData();
-  }, []);
+  }, [user]);
 
   // 2. Speichern / Update Logik
   const { showToast } = useToast();
@@ -77,6 +104,7 @@ export default function Home() {
     try {
       // DB Format
       const dbItem = {
+        user_id: user?.id,
         brand: data.brand || 'Unknown',
         model: data.model || '',
         category: data.category || 'bag',
@@ -268,7 +296,7 @@ export default function Home() {
   let content;
   const showNav = ['dashboard', 'inventory', 'export'].includes(view);
 
-  if (!user) return <LoginView onLogin={() => { setUser({ name: 'Admin' }); setView('dashboard'); }} />;
+  if (!user) return <LoginView onLogin={() => { /* Auth listener handles state */ }} />;
 
   switch (view) {
     case 'dashboard': content = <DashboardView items={items} />; break;
