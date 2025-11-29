@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { TrendingUp, Package, CreditCard, Sparkles, Store } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { TrendingUp, Package, CreditCard, Sparkles, Store, Euro, ArrowRight } from 'lucide-react';
+import { SalesChart } from '../ui/SalesChart';
 import { Item } from '../../types';
 import { calculateProfit, formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
@@ -121,46 +122,44 @@ export const DashboardView = ({ items }: { items: Item[] }) => {
                             <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Lagerbestand</p>
                             <p className="text-2xl font-serif font-bold text-stone-900">
                                 <AnimatedNumber value={stats.stockCount} />
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-8 h-8 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg flex items-center justify-center">
-                                        <TrendingUp className="w-4 h-4 text-amber-600" />
-                                    </div>
-                                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Ø Marge</p>
-                                </div>
-                                <div className="text-xl font-bold text-stone-900">
-                                    <AnimatedNumber value={stats.avgMargin} format={(val) => `${val.toFixed(1)}%`} />
-                                </div>
+                            </p>
+                        </Card>
+
+                        <Card hover className="p-5">
+                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center mb-3 text-emerald-600">
+                                <Euro className="w-5 h-5" />
+                            </div>
+                            <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Warenwert</p>
+                            <p className="text-2xl font-serif font-bold text-stone-900">
+                                <AnimatedNumber value={stats.inventoryValue} format={(val) => formatCurrency(val)} />
+                            </p>
                         </Card>
                     </div>
 
                     {/* Sales Channels */}
-                    <div className="mt-8">
-                        <h3 className="font-serif font-bold text-xl mb-4 text-stone-900">Verkaufskanäle</h3>
-                        <Card className="p-6">
-                            {stats.channels.length > 0 ? (
-                                <div className="space-y-5">
-                                    {stats.channels.map((ch) => (
-                                        <div key={ch.name}>
-                                            <div className="flex justify-between text-sm mb-2">
-                                                <span className="font-semibold text-stone-900">{ch.name}</span>
-                                                <span className="text-stone-600">
-                                                    {ch.count} ({ch.percentage.toFixed(0)}%)
-                                                </span>
-                                            </div>
-                                            <div className="h-2.5 w-full bg-stone-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-stone-800 to-stone-600 rounded-full transition-all duration-1000 ease-out"
-                                                    style={{ width: `${ch.percentage}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    ))}
+                    <Card className="p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-bold text-stone-800">Top Verkaufskanäle</h3>
+                            <ArrowRight className="w-4 h-4 text-stone-400" />
+                        </div>
+                        <div className="space-y-4">
+                            {stats.channels.map(([channel, count]: any, i: number) => (
+                                <div key={channel} className="relative">
+                                    <div className="flex justify-between text-sm mb-1.5 z-10 relative">
+                                        <span className="font-medium capitalize text-stone-700">{channel}</span>
+                                        <span className="text-stone-400">{count} Verkäufe</span>
+                                    </div>
+                                    <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full transition-all duration-1000 ease-out bg-stone-800"
+                                            style={{ width: `${(count / stats.soldCount) * 100}%`, transitionDelay: `${i * 100}ms` }}
+                                        />
+                                    </div>
                                 </div>
-                            ) : (
-                                <p className="text-stone-400 text-sm text-center py-4">Keine Daten verfügbar</p>
-                            )}
-                        </Card>
-                    </div>
+                            ))}
+                        </div>
+                    </Card>
+                </div>
             </FadeIn>
         );
     };
