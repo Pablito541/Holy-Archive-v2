@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: "Holy Archive",
   description: "Inventory & Profit Tracking",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
