@@ -133,8 +133,8 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
                             inputMode="decimal"
                             step="0.01"
                             placeholder="0.00"
-                            value={formData.purchasePriceEur}
-                            onChange={(e: any) => handleChange('purchasePriceEur', parseFloat(e.target.value))}
+                            value={formData.purchasePriceEur === 0 ? '' : formData.purchasePriceEur}
+                            onChange={(e: any) => handleChange('purchasePriceEur', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                             required
                         />
                         <Input

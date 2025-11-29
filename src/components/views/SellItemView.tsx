@@ -45,8 +45,8 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
                         type="number"
                         inputMode="decimal"
                         step="0.01"
-                        value={formData.salePriceEur}
-                        onChange={(e: any) => setFormData(p => ({ ...p, salePriceEur: parseFloat(e.target.value) || 0 }))}
+                        value={formData.salePriceEur === 0 ? '' : formData.salePriceEur}
+                        onChange={(e: any) => setFormData(p => ({ ...p, salePriceEur: e.target.value === '' ? 0 : parseFloat(e.target.value) }))}
                         required
                         autoFocus
                     />
@@ -70,16 +70,16 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
                             type="number"
                             inputMode="decimal"
                             step="0.01"
-                            value={formData.platformFeesEur}
-                            onChange={(e: any) => setFormData(p => ({ ...p, platformFeesEur: parseFloat(e.target.value) || 0 }))}
+                            value={formData.platformFeesEur === 0 ? '' : formData.platformFeesEur}
+                            onChange={(e: any) => setFormData(p => ({ ...p, platformFeesEur: e.target.value === '' ? 0 : parseFloat(e.target.value) }))}
                         />
                         <Input
                             label="Versand (€)"
                             type="number"
                             inputMode="decimal"
                             step="0.01"
-                            value={formData.shippingCostEur}
-                            onChange={(e: any) => setFormData(p => ({ ...p, shippingCostEur: parseFloat(e.target.value) || 0 }))}
+                            value={formData.shippingCostEur === 0 ? '' : formData.shippingCostEur}
+                            onChange={(e: any) => setFormData(p => ({ ...p, shippingCostEur: e.target.value === '' ? 0 : parseFloat(e.target.value) }))}
                         />
                     </div>
 

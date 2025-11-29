@@ -15,6 +15,7 @@ import { ItemDetailView } from '../components/views/ItemDetailView';
 import { ExportView } from '../components/views/ExportView';
 import { ActionMenu } from '../components/views/ActionMenu';
 import { Navigation } from '../components/views/Navigation';
+import { useToast } from '../components/ui/Toast';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -68,137 +69,184 @@ export default function Home() {
   }, []);
 
   // 2. Speichern / Update Logik
+  const { showToast } = useToast();
+
+  // ...
+
   const handleCreateItem = async (data: Partial<Item>) => {
-    // DB Format
-    const dbItem = {
-      brand: data.brand || 'Unknown',
-      model: data.model || '',
-      category: data.category || 'bag',
-      condition: data.condition || 'good',
-      status: 'in_stock',
-      purchase_price_eur: data.purchasePriceEur || 0,
-      purchase_date: data.purchaseDate || new Date().toISOString(),
-      purchase_source: data.purchaseSource || '',
-      image_urls: data.imageUrls || [],
-      notes: data.notes || ''
-    };
-
-    if (supabase) {
-      const { data: inserted, error } = await supabase.from('items').insert(dbItem).select().single();
-      if (inserted && !error) {
-        const newItem: Item = {
-          id: inserted.id,
-          brand: inserted.brand,
-          model: inserted.model,
-          category: inserted.category,
-          condition: inserted.condition,
-          status: inserted.status,
-          purchasePriceEur: inserted.purchase_price_eur,
-          purchaseDate: inserted.purchase_date,
-          purchaseSource: inserted.purchase_source,
-          salePriceEur: inserted.sale_price_eur,
-          saleDate: inserted.sale_date,
-          saleChannel: inserted.sale_channel,
-          platformFeesEur: inserted.platform_fees_eur,
-          shippingCostEur: inserted.shipping_cost_eur,
-          reservedFor: inserted.reserved_for,
-          reservedUntil: inserted.reserved_until,
-          imageUrls: inserted.image_urls || [],
-          notes: inserted.notes,
-          createdAt: inserted.created_at
-        };
-        setItems(prev => [newItem, ...prev]);
-      }
-    } else {
-      // Local Fallback
-      const newItem: Item = {
-        ...data,
-        id: generateId(),
+    try {
+      // DB Format
+      const dbItem = {
+        brand: data.brand || 'Unknown',
+        model: data.model || '',
+        category: data.category || 'bag',
+        condition: data.condition || 'good',
         status: 'in_stock',
-        createdAt: new Date().toISOString()
-      } as Item;
-      setItems(prev => [newItem, ...prev]);
-      localStorage.setItem('vintage_items', JSON.stringify([newItem, ...items]));
-    }
+        purchase_price_eur: data.purchasePriceEur || 0,
+        purchase_date: data.purchaseDate || new Date().toISOString(),
+        purchase_source: data.purchaseSource || '',
+        image_urls: data.imageUrls || [],
+        notes: data.notes || ''
+      };
 
-    setView('inventory');
-    setSelectionMode('view');
+      if (supabase) {
+        const { data: inserted, error } = await supabase.from('items').insert(dbItem).select().single();
+
+        if (error) {
+          console.error('Supabase Error:', error);
+          showToast(`Fehler beim Erstellen: ${error.message}`, 'error');
+          return;
+        }
+
+        if (inserted) {
+          const newItem: Item = {
+            id: inserted.id,
+            brand: inserted.brand,
+            model: inserted.model,
+            category: inserted.category,
+            condition: inserted.condition,
+            status: inserted.status,
+            purchasePriceEur: inserted.purchase_price_eur,
+            purchaseDate: inserted.purchase_date,
+            purchaseSource: inserted.purchase_source,
+            salePriceEur: inserted.sale_price_eur,
+            saleDate: inserted.sale_date,
+            saleChannel: inserted.sale_channel,
+            platformFeesEur: inserted.platform_fees_eur,
+            shippingCostEur: inserted.shipping_cost_eur,
+            reservedFor: inserted.reserved_for,
+            reservedUntil: inserted.reserved_until,
+            imageUrls: inserted.image_urls || [],
+            notes: inserted.notes,
+            createdAt: inserted.created_at
+          };
+          setItems(prev => [newItem, ...prev]);
+          showToast('Artikel erfolgreich erstellt', 'success');
+        }
+      } else {
+        // Local Fallback
+        const newItem: Item = {
+          ...data,
+          id: generateId(),
+          status: 'in_stock',
+          createdAt: new Date().toISOString()
+        } as Item;
+        setItems(prev => [newItem, ...prev]);
+        localStorage.setItem('vintage_items', JSON.stringify([newItem, ...items]));
+        showToast('Artikel lokal gespeichert', 'success');
+      }
+
+      setView('inventory');
+      setSelectionMode('view');
+    } catch (e: any) {
+      console.error('Create Error:', e);
+      showToast('Ein unerwarteter Fehler ist aufgetreten', 'error');
+    }
   };
 
   const handleDeleteItem = async (id: string) => {
     if (confirm('Wirklich löschen?')) {
       if (supabase) {
-        await supabase.from('items').delete().eq('id', id);
+        const { error } = await supabase.from('items').delete().eq('id', id);
+        if (error) {
+          showToast(`Fehler beim Löschen: ${error.message}`, 'error');
+          return;
+        }
       }
       const newItems = items.filter(i => i.id !== id);
       setItems(newItems);
       if (!supabase) localStorage.setItem('vintage_items', JSON.stringify(newItems));
       setView('inventory');
+      showToast('Artikel gelöscht', 'info');
     }
   };
 
   const handleSellItem = async (saleData: Partial<Item>) => {
     if (!selectedItemId) return;
 
-    const dbUpdate = {
-      status: 'sold',
-      sale_price_eur: saleData.salePriceEur,
-      sale_date: saleData.saleDate,
-      sale_channel: saleData.saleChannel,
-      platform_fees_eur: saleData.platformFeesEur,
-      shipping_cost_eur: saleData.shippingCostEur,
-      reserved_for: null,
-      reserved_until: null
-    };
+    try {
+      const dbUpdate = {
+        status: 'sold',
+        sale_price_eur: saleData.salePriceEur,
+        sale_date: saleData.saleDate,
+        sale_channel: saleData.saleChannel,
+        platform_fees_eur: saleData.platformFeesEur,
+        shipping_cost_eur: saleData.shippingCostEur,
+        reserved_for: null,
+        reserved_until: null
+      };
 
-    if (supabase) {
-      await supabase.from('items').update(dbUpdate).eq('id', selectedItemId);
-    }
-
-    setItems(prev => prev.map(item => {
-      if (item.id === selectedItemId) {
-        return {
-          ...item,
-          ...saleData,
-          status: 'sold',
-          reservedFor: undefined,
-          reservedUntil: undefined
-        };
+      if (supabase) {
+        const { error } = await supabase.from('items').update(dbUpdate).eq('id', selectedItemId);
+        if (error) {
+          console.error('Supabase Update Error:', error);
+          showToast(`Fehler beim Verkauf: ${error.message}`, 'error');
+          return;
+        }
       }
-      return item;
-    }));
 
-    if (!supabase) {
-      // update local storage logic omitted for brevity in hybrid mode if mostly using supabase
+      setItems(prev => prev.map(item => {
+        if (item.id === selectedItemId) {
+          return {
+            ...item,
+            ...saleData,
+            status: 'sold',
+            reservedFor: undefined,
+            reservedUntil: undefined
+          };
+        }
+        return item;
+      }));
+
+      if (!supabase) {
+        // update local storage logic omitted
+      }
+
+      setView('dashboard');
+      showToast('Artikel erfolgreich verkauft!', 'success');
+    } catch (e) {
+      console.error('Sell Error:', e);
+      showToast('Fehler beim Speichern des Verkaufs', 'error');
     }
-
-    setView('dashboard');
   };
 
   const handleReserveItem = async (id: string, name: string, days: number) => {
-    const until = new Date();
-    until.setDate(until.getDate() + days);
-    const isoDate = until.toISOString();
+    try {
+      const until = new Date();
+      until.setDate(until.getDate() + days);
+      const isoDate = until.toISOString();
 
-    if (supabase) {
-      await supabase.from('items').update({
-        status: 'reserved',
-        reserved_for: name,
-        reserved_until: isoDate
-      }).eq('id', id);
-    }
-
-    setItems(prev => prev.map(item => {
-      if (item.id === id) {
-        return {
-          ...item,
+      if (supabase) {
+        const { error } = await supabase.from('items').update({
           status: 'reserved',
-          reservedFor: name,
-          reservedUntil: isoDate
-        };
+          reserved_for: name,
+          reserved_until: isoDate
+        }).eq('id', id);
+
+        if (error) {
+          console.error('Reserve Error:', error);
+          showToast(`Fehler beim Reservieren: ${error.message}`, 'error');
+          return;
+        }
       }
-      return item;
-    }));
+
+      setItems(prev => prev.map(item => {
+        if (item.id === id) {
+          return {
+            ...item,
+            status: 'reserved',
+            reservedFor: name,
+            reservedUntil: isoDate
+          };
+        }
+        return item;
+      }));
+
+      showToast(`Artikel für ${name} reserviert`, 'success');
+    } catch (e) {
+      console.error('Reserve Error:', e);
+      showToast('Fehler beim Reservieren', 'error');
+    }
   };
 
   const handleAction = (action: 'buy' | 'sell') => {

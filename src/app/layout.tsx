@@ -24,6 +24,10 @@ export const metadata: Metadata = {
   },
 };
 
+import { ToastProvider } from "../components/ui/Toast";
+
+// ... imports ...
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,7 +36,9 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body className={`${inter.className} ${playfair.variable} bg-[#fafaf9] min-h-screen`}>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
