@@ -7,7 +7,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { StatusBadge } from '../ui/StatusBadge';
 
-export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve }: any) => {
+export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCancelReservation }: any) => {
     const profit = calculateProfit(item);
     const [isImageOpen, setIsImageOpen] = useState(false);
     const [isReserving, setIsReserving] = useState(false);
@@ -108,13 +108,22 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve }: an
 
                 {item.status === 'reserved' && (
                     <div className="p-6 bg-amber-50 text-amber-900 rounded-3xl border border-amber-100">
-                        <div className="flex items-start mb-2">
-                            <Clock className="w-5 h-5 mr-2 text-amber-600" />
-                            <div>
-                                <h4 className="font-bold text-lg mb-1">Reserviert</h4>
-                                <p className="text-sm opacity-80">Für: {item.reservedFor}</p>
-                                <p className="text-xs opacity-60 mt-1">Bis: {formatDate(item.reservedUntil || '')}</p>
+                        <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-start">
+                                <Clock className="w-5 h-5 mr-2 text-amber-600" />
+                                <div>
+                                    <h4 className="font-bold text-lg mb-1">Reserviert</h4>
+                                    <p className="text-sm opacity-80">Für: {item.reservedFor}</p>
+                                    <p className="text-xs opacity-60 mt-1">Bis: {formatDate(item.reservedUntil || '')}</p>
+                                </div>
                             </div>
+                            <Button
+                                onClick={onCancelReservation}
+                                variant="ghost"
+                                className="text-amber-700 hover:bg-amber-100 -mt-2 -mr-2 text-xs px-3 py-2 h-auto"
+                            >
+                                Aufheben
+                            </Button>
                         </div>
                     </div>
                 )}

@@ -277,6 +277,41 @@ export default function Home() {
     }
   };
 
+  const handleCancelReservation = async (id: string) => {
+    try {
+      if (supabase) {
+        const { error } = await supabase.from('items').update({
+          status: 'in_stock',
+          reserved_for: null,
+          reserved_until: null
+        }).eq('id', id);
+
+        if (error) {
+          console.error('Cancel Reservation Error:', error);
+          showToast(`Fehler: ${error.message}`, 'error');
+          return;
+        }
+      }
+
+      setItems(prev => prev.map(item => {
+        if (item.id === id) {
+          return {
+            ...item,
+            status: 'in_stock',
+            reservedFor: undefined,
+            reservedUntil: undefined
+          };
+        }
+        return item;
+      }));
+
+      showToast('Reservierung aufgehoben', 'info');
+    } catch (e) {
+      console.error('Cancel Reservation Error:', e);
+      showToast('Fehler beim Aufheben der Reservierung', 'error');
+    }
+  };
+
   const handleAction = (action: 'buy' | 'sell') => {
     setShowActionMenu(false);
     if (action === 'buy') {
@@ -324,6 +359,7 @@ export default function Home() {
           onSell={() => setView('sell')}
           onDelete={() => handleDeleteItem(selectedItem.id)}
           onReserve={handleReserveItem}
+          onCancelReservation={() => handleCancelReservation(selectedItem.id)}
         />
       ) : null;
       break;
