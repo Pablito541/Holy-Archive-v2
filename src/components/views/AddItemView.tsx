@@ -7,12 +7,11 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 
 export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>) => void, onCancel: () => void }) => {
-    const [formData, setFormData] = useState<Partial<Item> & { purchasePriceEurInput: string }>({
+    const [formData, setFormData] = useState<Partial<Item>>({
         brand: '',
         category: 'bag',
         condition: 'good',
         purchasePriceEur: 0,
-        purchasePriceEurInput: '', // New string state for input
         purchaseDate: new Date().toISOString().split('T')[0],
         purchaseSource: '',
         model: '',
@@ -21,7 +20,7 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
         imageUrls: []
     });
 
-    const handleChange = (field: keyof Item | 'purchasePriceEurInput', value: any) => {
+    const handleChange = (field: keyof Item, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
@@ -38,7 +37,6 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
 
     return (
         <FadeIn className="bg-[#fafaf9] min-h-screen pb-safe">
-            {/* ... header ... */}
             <header className="px-6 py-6 flex items-center justify-between sticky top-0 bg-[#fafaf9]/90 backdrop-blur-xl z-20">
                 <button onClick={onCancel} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white shadow-sm border border-stone-100 text-stone-600 active:scale-90 transition-transform">
                     <X className="w-5 h-5" />
@@ -47,17 +45,8 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
                 <div className="w-8"></div>
             </header>
 
-            <form onSubmit={(e) => {
-                e.preventDefault();
-                const submissionData = {
-                    ...formData,
-                    purchasePriceEur: parseFloat(formData.purchasePriceEurInput) || 0
-                };
-                delete (submissionData as any).purchasePriceEurInput;
-                onSave(submissionData);
-            }} className="px-6 pb-12 max-w-lg mx-auto">
+            <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="px-6 pb-12 max-w-lg mx-auto">
 
-                {/* ... image upload ... */}
                 <div className="mb-8">
                     <label className="block w-full aspect-[4/3] bg-white rounded-[2rem] border-2 border-dashed border-stone-200 hover:border-stone-400 transition-colors cursor-pointer overflow-hidden relative shadow-sm">
                         {formData.imageUrls && formData.imageUrls.length > 0 ? (
@@ -123,8 +112,8 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
                     <Select
                         label="Zustand"
                         options={[
-                            { value: 'new', label: 'Neu' },
-                            { value: 'like_new', label: 'Neuwertig' },
+                            { value: 'mint', label: 'Neuwertig' },
+                            { value: 'very_good', label: 'Sehr gut' },
                             { value: 'good', label: 'Gut' },
                             { value: 'fair', label: 'Akzeptabel' },
                             { value: 'poor', label: 'Schlecht' }
@@ -144,8 +133,8 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
                             inputMode="decimal"
                             step="0.01"
                             placeholder="0.00"
-                            value={formData.purchasePriceEurInput}
-                            onChange={(e: any) => handleChange('purchasePriceEurInput', e.target.value)}
+                            value={formData.purchasePriceEur}
+                            onChange={(e: any) => handleChange('purchasePriceEur', parseFloat(e.target.value))}
                             required
                         />
                         <Input
