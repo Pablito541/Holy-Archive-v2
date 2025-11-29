@@ -9,14 +9,28 @@ import { Button } from '../ui/Button';
 
 export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (data: Partial<Item>) => void, onCancel: () => void }) => {
     const [formData, setFormData] = useState({
-        salePriceEur: 0,
+        salePriceEur: '',
         saleDate: new Date().toISOString().split('T')[0],
         saleChannel: 'whatsapp',
-        platformFeesEur: 0,
-        shippingCostEur: 0
+        platformFeesEur: '',
+        shippingCostEur: ''
     });
 
-    const profit = formData.salePriceEur - item.purchasePriceEur - formData.platformFeesEur - formData.shippingCostEur;
+    const salePrice = parseFloat(formData.salePriceEur) || 0;
+    const fees = parseFloat(formData.platformFeesEur) || 0;
+    const shipping = parseFloat(formData.shippingCostEur) || 0;
+
+    const profit = salePrice - item.purchasePriceEur - fees - shipping;
+
+    const handleSave = () => {
+        onSave({
+            salePriceEur: salePrice,
+            saleDate: formData.saleDate,
+            saleChannel: formData.saleChannel,
+            platformFeesEur: fees,
+            shippingCostEur: shipping
+        });
+    };
 
     return (
         <FadeIn className="bg-[#fafaf9] min-h-screen pb-safe">
@@ -45,8 +59,9 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
                         type="number"
                         inputMode="decimal"
                         step="0.01"
+                        placeholder="0.00"
                         value={formData.salePriceEur}
-                        onChange={(e: any) => setFormData(p => ({ ...p, salePriceEur: parseFloat(e.target.value) || 0 }))}
+                        onChange={(e: any) => setFormData(p => ({ ...p, salePriceEur: e.target.value }))}
                         required
                         autoFocus
                     />
@@ -70,16 +85,18 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
                             type="number"
                             inputMode="decimal"
                             step="0.01"
+                            placeholder="0.00"
                             value={formData.platformFeesEur}
-                            onChange={(e: any) => setFormData(p => ({ ...p, platformFeesEur: parseFloat(e.target.value) || 0 }))}
+                            onChange={(e: any) => setFormData(p => ({ ...p, platformFeesEur: e.target.value }))}
                         />
                         <Input
                             label="Versand (€)"
                             type="number"
                             inputMode="decimal"
                             step="0.01"
+                            placeholder="0.00"
                             value={formData.shippingCostEur}
-                            onChange={(e: any) => setFormData(p => ({ ...p, shippingCostEur: parseFloat(e.target.value) || 0 }))}
+                            onChange={(e: any) => setFormData(p => ({ ...p, shippingCostEur: e.target.value }))}
                         />
                     </div>
 
@@ -101,7 +118,7 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
                 </div>
 
                 <Button
-                    onClick={() => onSave(formData)}
+                    onClick={handleSave}
                     className="w-full mt-4"
                     variant="primary"
                 >

@@ -215,7 +215,7 @@ function AppContent() {
       setView('dashboard');
     } catch (error: any) {
       console.error('Error selling item:', error);
-      showToast('Fehler beim Verkauf', 'error');
+      showToast('Fehler beim Verkauf: ' + (error.message || error.error_description || JSON.stringify(error)), 'error');
     }
   };
 
@@ -249,7 +249,7 @@ function AppContent() {
       showToast('Artikel reserviert', 'info');
     } catch (error: any) {
       console.error('Error reserving item:', error);
-      showToast('Fehler beim Reservieren', 'error');
+      showToast('Fehler beim Reservieren: ' + (error.message || error.error_description || JSON.stringify(error)), 'error');
     }
   };
 

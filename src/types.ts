@@ -1,5 +1,5 @@
 export type ItemStatus = 'in_stock' | 'reserved' | 'sold';
-export type Condition = 'mint' | 'very_good' | 'good' | 'fair' | 'poor';
+export type Condition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
 export type Category = 'bag' | 'wallet' | 'accessory' | 'lock' | 'other';
 
 export interface Item {
