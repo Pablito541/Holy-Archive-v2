@@ -6,6 +6,8 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 
+import { supabase } from '../../lib/supabase';
+
 export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>) => void, onCancel: () => void }) => {
     const [formData, setFormData] = useState<Partial<Item>>({
         brand: '',
@@ -21,6 +23,8 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const handleChange = (field: keyof Item, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -29,9 +33,12 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
+            setSelectedFile(file);
+
+            // Create preview URL
             const reader = new FileReader();
             reader.onloadend = () => {
-                handleChange('imageUrls', [reader.result as string]);
+                setPreviewUrl(reader.result as string);
             };
             reader.readAsDataURL(file);
         }
@@ -43,9 +50,34 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
 
         setIsSubmitting(true);
         try {
-            await onSave(formData);
+            let finalImageUrls = formData.imageUrls || [];
+
+            // Upload image if selected and Supabase is available
+            if (selectedFile && supabase) {
+                const fileExt = selectedFile.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+                const filePath = `${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('images')
+                    .upload(filePath, selectedFile);
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('images')
+                    .getPublicUrl(filePath);
+
+                finalImageUrls = [publicUrl];
+            } else if (selectedFile && !supabase) {
+                // Fallback for local dev without Supabase: use Base64 preview
+                if (previewUrl) finalImageUrls = [previewUrl];
+            }
+
+            await onSave({ ...formData, imageUrls: finalImageUrls });
         } catch (error) {
-            console.error(error);
+            console.error('Error saving item:', error);
+            alert('Fehler beim Speichern. Bitte erneut versuchen.');
             setIsSubmitting(false);
         }
     };
@@ -64,9 +96,9 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
 
                 <div className="mb-8">
                     <label className="block w-full aspect-[4/3] bg-white rounded-[2rem] border-2 border-dashed border-stone-200 hover:border-stone-400 transition-colors cursor-pointer overflow-hidden relative shadow-sm">
-                        {formData.imageUrls && formData.imageUrls.length > 0 ? (
+                        {previewUrl || (formData.imageUrls && formData.imageUrls.length > 0) ? (
                             <>
-                                <img src={formData.imageUrls[0]} className="w-full h-full object-cover" />
+                                <img src={previewUrl || formData.imageUrls![0]} className="w-full h-full object-cover" />
                                 <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md">Ändern</div>
                             </>
                         ) : (
