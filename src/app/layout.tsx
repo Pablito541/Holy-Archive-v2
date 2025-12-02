@@ -37,8 +37,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de">
-      <body className={`${inter.className} ${playfair.variable} bg-[#fafaf9] dark:bg-stone-950 min-h-screen transition-colors`}>
+    <html lang="de" className="h-full">
+      <body className={`${inter.className} ${playfair.variable} h-full bg-stone-50 dark:bg-zinc-950 min-h-screen transition-colors duration-200`}>
         <ThemeProvider>
           <ToastProvider>
             {children}
