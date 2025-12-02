@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Camera, Save } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Camera, Save, Image as ImageIcon } from 'lucide-react';
 import { Item } from '../../types';
 import { FadeIn } from '../ui/FadeIn';
 import { Input } from '../ui/Input';
@@ -25,6 +25,9 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(initialData?.imageUrls?.[0] || null);
+
+    const cameraInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
 
     const handleChange = (field: keyof Item, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -95,23 +98,81 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
             <form onSubmit={handleSubmit} className="px-6 pb-12 max-w-lg mx-auto">
 
                 <div className="mb-8">
-                    <label className="block w-full aspect-[4/3] bg-white rounded-[2rem] border-2 border-dashed border-stone-200 hover:border-stone-400 transition-colors cursor-pointer overflow-hidden relative shadow-sm">
+                    <div className="block w-full aspect-[4/3] bg-white rounded-[2rem] border-2 border-dashed border-stone-200 overflow-hidden relative shadow-sm">
                         {previewUrl || (formData.imageUrls && formData.imageUrls.length > 0) ? (
-                            <>
+                            <div className="relative w-full h-full group">
                                 <img src={previewUrl || formData.imageUrls![0]} className="w-full h-full object-cover" />
-                                <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md">Ändern</div>
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-stone-400">
-                                <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-3">
-                                    <Camera className="w-8 h-8 text-stone-900" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 backdrop-blur-sm">
+                                    <button
+                                        type="button"
+                                        onClick={() => cameraInputRef.current?.click()}
+                                        className="flex flex-col items-center justify-center text-white hover:scale-110 transition-transform"
+                                    >
+                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-2">
+                                            <Camera className="w-6 h-6" />
+                                        </div>
+                                        <span className="text-xs font-medium">Kamera</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => galleryInputRef.current?.click()}
+                                        className="flex flex-col items-center justify-center text-white hover:scale-110 transition-transform"
+                                    >
+                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-2">
+                                            <ImageIcon className="w-6 h-6" />
+                                        </div>
+                                        <span className="text-xs font-medium">Galerie</span>
+                                    </button>
                                 </div>
-                                <span className="font-medium text-sm">Foto hinzufügen</span>
-                                <span className="text-xs opacity-60 mt-1">Tippen für Kamera</span>
+                                <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-xs backdrop-blur-md group-hover:opacity-0 transition-opacity pointer-events-none">
+                                    Tippen zum Ändern
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-stone-400 gap-6">
+                                <div className="text-center">
+                                    <span className="font-medium text-sm block mb-4">Foto hinzufügen</span>
+                                    <div className="flex gap-6">
+                                        <button
+                                            type="button"
+                                            onClick={() => cameraInputRef.current?.click()}
+                                            className="flex flex-col items-center gap-2 group"
+                                        >
+                                            <div className="w-16 h-16 bg-stone-50 rounded-2xl flex items-center justify-center border border-stone-100 group-hover:border-stone-300 group-hover:bg-stone-100 transition-all">
+                                                <Camera className="w-7 h-7 text-stone-700" />
+                                            </div>
+                                            <span className="text-xs font-medium text-stone-500">Kamera</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => galleryInputRef.current?.click()}
+                                            className="flex flex-col items-center gap-2 group"
+                                        >
+                                            <div className="w-16 h-16 bg-stone-50 rounded-2xl flex items-center justify-center border border-stone-100 group-hover:border-stone-300 group-hover:bg-stone-100 transition-all">
+                                                <ImageIcon className="w-7 h-7 text-stone-700" />
+                                            </div>
+                                            <span className="text-xs font-medium text-stone-500">Galerie</span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
-                        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
-                    </label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            ref={cameraInputRef}
+                            onChange={handleImageUpload}
+                        />
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={galleryInputRef}
+                            onChange={handleImageUpload}
+                        />
+                    </div>
                 </div>
 
                 <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 mb-6">
