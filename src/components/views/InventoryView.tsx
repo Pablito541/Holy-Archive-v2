@@ -34,7 +34,7 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
     }, [selectionMode]);
 
     return (
-        <FadeIn className="p-6 pb-32 h-full flex flex-col max-w-7xl mx-auto">
+        <FadeIn className="p-6 pb-32 h-full flex flex-col max-w-7xl mx-auto bg-transparent">
             <header className="mb-4 pt-2">
                 {selectionMode === 'sell' ? (
                     <div className="bg-stone-900 dark:bg-stone-800 text-white p-4 rounded-2xl mb-4 shadow-xl shadow-stone-900/10">

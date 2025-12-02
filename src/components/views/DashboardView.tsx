@@ -74,7 +74,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
     ];
 
     return (
-        <FadeIn className="pb-safe">
+        <FadeIn className="pb-safe bg-transparent">
             <div className="px-6 pt-6 pb-6 max-w-7xl mx-auto">
                 <div className="flex justify-between items-center mb-6 relative z-50">
                     <div>
@@ -111,8 +111,8 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                                                     key={value}
                                                     onClick={() => setTheme(value)}
                                                     className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${theme === value
-                                                            ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100'
-                                                            : 'text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/50'
+                                                        ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100'
+                                                        : 'text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/50'
                                                         }`}
                                                 >
                                                     <Icon className="w-4 h-4" />
@@ -138,7 +138,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                 {/* Desktop Grid Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                     {/* Hero Card: Financial Overview */}
-                    <Card className="lg:col-span-2 p-8 bg-white dark:bg-stone-900 shadow-lg shadow-stone-200/50 dark:shadow-stone-950/50 relative overflow-hidden border border-stone-100 dark:border-stone-800">
+                    <Card className="lg:col-span-2 p-8 bg-white dark:bg-stone-900/50 dark:backdrop-blur-sm shadow-lg shadow-stone-200/50 dark:shadow-black/20 relative overflow-hidden border border-stone-100 dark:border-stone-800/50">
                         <div className="flex justify-between items-start mb-8">
                             <div>
                                 <p className="text-stone-400 dark:text-stone-500 text-xs font-bold uppercase tracking-widest mb-2">Gewinn (Monat)</p>
@@ -175,26 +175,28 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                                 Alle <ArrowRight className="w-4 h-4 ml-1" />
                             </button>
                         </div>
-                        <Card className="p-4 flex flex-col justify-between bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800">
-                            <div className="w-8 h-8 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mb-3 text-stone-600 dark:text-stone-400">
-                                <Package className="w-4 h-4" />
-                            </div>
-                            <div>
-                                <span className="block text-2xl font-bold text-stone-900 dark:text-stone-100">{stats.stockCount}</span>
-                                <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">Artikel im Lager</span>
-                            </div>
-                        </Card>
-                        <Card className="p-4 flex flex-col justify-between bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800">
-                            <div className="w-8 h-8 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mb-3 text-stone-600 dark:text-stone-400">
-                                <Euro className="w-4 h-4" />
-                            </div>
-                            <div>
-                                <span className="block text-2xl font-bold text-stone-900 dark:text-stone-100">
-                                    <AnimatedNumber value={stats.inventoryValue} format={(val) => formatCurrency(val)} />
-                                </span>
-                                <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">Warenwert</span>
-                            </div>
-                        </Card>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Card className="p-4 flex flex-col justify-between bg-white dark:bg-stone-900/50 dark:backdrop-blur-sm border border-stone-100 dark:border-stone-800/50 shadow-sm dark:shadow-black/10">
+                                <div className="w-8 h-8 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mb-3 text-stone-600 dark:text-stone-400">
+                                    <Package className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <span className="block text-2xl font-bold text-stone-900 dark:text-stone-100">{stats.stockCount}</span>
+                                    <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">Artikel im Lager</span>
+                                </div>
+                            </Card>
+                            <Card className="p-4 flex flex-col justify-between bg-white dark:bg-stone-900/50 dark:backdrop-blur-sm border border-stone-100 dark:border-stone-800/50 shadow-sm dark:shadow-black/10">
+                                <div className="w-8 h-8 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mb-3 text-stone-600 dark:text-stone-400">
+                                    <Euro className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <span className="block text-2xl font-bold text-stone-900 dark:text-stone-100">
+                                        <AnimatedNumber value={stats.inventoryValue} format={(val) => formatCurrency(val)} />
+                                    </span>
+                                    <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">Warenwert</span>
+                                </div>
+                            </Card>
+                        </div>
                     </div>
                 </div>
 
