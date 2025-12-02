@@ -8,6 +8,8 @@ import { Button } from '../ui/Button';
 
 import { supabase } from '../../lib/supabase';
 
+import imageCompression from 'browser-image-compression';
+
 export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: Partial<Item>) => void, onCancel: () => void, initialData?: Item }) => {
     const [formData, setFormData] = useState<Partial<Item>>(initialData || {
         brand: '',
@@ -57,13 +59,30 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
 
             // Upload image if selected and Supabase is available
             if (selectedFile && supabase) {
-                const fileExt = selectedFile.name.split('.').pop();
+                // Compress image
+                const options = {
+                    maxSizeMB: 0.3,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true
+                };
+
+                let fileToUpload = selectedFile;
+                try {
+                    console.log(`Original size: ${selectedFile.size / 1024 / 1024} MB`);
+                    const compressedFile = await imageCompression(selectedFile, options);
+                    console.log(`Compressed size: ${compressedFile.size / 1024 / 1024} MB`);
+                    fileToUpload = compressedFile;
+                } catch (error) {
+                    console.error('Compression failed, falling back to original file:', error);
+                }
+
+                const fileExt = fileToUpload.name.split('.').pop();
                 const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
                 const filePath = `${fileName}`;
 
                 const { error: uploadError } = await supabase.storage
                     .from('images')
-                    .upload(filePath, selectedFile);
+                    .upload(filePath, fileToUpload);
 
                 if (uploadError) throw uploadError;
 
