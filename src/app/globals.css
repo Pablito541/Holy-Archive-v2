@@ -56,9 +56,15 @@
   --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.6);
 }
 
+/* Apply background to both html and body */
+html {
+  background-color: rgb(var(--background-start-rgb));
+}
+
 body {
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background-color: rgb(var(--background-start-rgb)) !important;
+  min-height: 100vh;
 }
 
 /* iOS Safe Area */

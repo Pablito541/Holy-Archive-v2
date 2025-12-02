@@ -38,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de" className="h-full">
-      <body className={`${inter.className} ${playfair.variable} h-full bg-stone-50 dark:bg-zinc-950 min-h-screen transition-colors duration-200`}>
+      <body className={`${inter.className} ${playfair.variable} h-full min-h-screen transition-colors duration-300`}>
         <ThemeProvider>
           <ToastProvider>
             {children}
