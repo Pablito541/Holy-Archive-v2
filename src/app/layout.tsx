@@ -29,8 +29,7 @@ export const metadata: Metadata = {
 };
 
 import { ToastProvider } from "../components/ui/Toast";
-
-// ... imports ...
+import { ThemeProvider } from "../components/providers/ThemeProvider";
 
 export default function RootLayout({
   children,
@@ -39,10 +38,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de">
-      <body className={`${inter.className} ${playfair.variable} bg-[#fafaf9] min-h-screen`}>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+      <body className={`${inter.className} ${playfair.variable} bg-[#fafaf9] dark:bg-stone-950 min-h-screen transition-colors`}>
+        <ThemeProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

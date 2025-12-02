@@ -86,12 +86,12 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     };
 
     return (
-        <FadeIn className="bg-[#fafaf9] min-h-screen pb-safe">
-            <header className="px-6 py-6 flex items-center justify-between sticky top-0 bg-[#fafaf9]/90 backdrop-blur-xl z-20">
-                <button onClick={onCancel} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white shadow-sm border border-stone-100 text-stone-600 active:scale-90 transition-transform">
+        <FadeIn className="bg-[#fafaf9] dark:bg-stone-950 min-h-screen pb-safe">
+            <header className="px-6 py-6 flex items-center justify-between sticky top-0 bg-[#fafaf9]/90 dark:bg-stone-950/90 backdrop-blur-xl z-20">
+                <button onClick={onCancel} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white dark:bg-stone-900 shadow-sm border border-stone-100 dark:border-stone-800 text-stone-600 dark:text-stone-300 active:scale-90 transition-transform">
                     <X className="w-5 h-5" />
                 </button>
-                <h2 className="font-serif font-bold text-xl">{initialData ? 'Artikel bearbeiten' : 'Neuer Artikel'}</h2>
+                <h2 className="font-serif font-bold text-xl dark:text-stone-100">{initialData ? 'Artikel bearbeiten' : 'Neuer Artikel'}</h2>
                 <div className="w-8"></div>
             </header>
 
