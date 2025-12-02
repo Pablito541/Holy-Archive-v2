@@ -87,9 +87,6 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                                 <Edit2 className="w-4 h-4" />
                             </button>
                         )}
-                        <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-stone-100 text-stone-600 active:scale-90 transition-transform">
-                            <Share2 className="w-4 h-4" />
-                        </button>
                     </div>
                 </header>
                 <div className="absolute bottom-12 right-6 bg-black/40 text-white px-2 py-1 rounded-full backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">

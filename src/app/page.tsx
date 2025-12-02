@@ -349,6 +349,14 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
+    setView('login');
+  };
+
   const renderContent = () => {
     if (view === 'login') return <LoginView onLogin={(u) => { setUser(u); setView('dashboard'); }} />;
 
@@ -357,6 +365,8 @@ export default function Home() {
         items={items}
         onViewInventory={() => setView('inventory')}
         onAddItem={() => setView('add-item')}
+        userEmail={user?.email}
+        onLogout={handleLogout}
       />
     );
 

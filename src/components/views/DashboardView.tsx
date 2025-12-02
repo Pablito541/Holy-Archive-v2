@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, Package, CreditCard, Sparkles, Store, Euro, ArrowRight } from 'lucide-react';
+import { TrendingUp, Package, CreditCard, Sparkles, Store, Euro, ArrowRight, LogOut, User } from 'lucide-react';
 import { SalesChart } from '../ui/SalesChart';
 import { Item } from '../../types';
 import { calculateProfit, formatCurrency } from '../../lib/utils';
@@ -7,8 +7,15 @@ import { FadeIn } from '../ui/FadeIn';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { Card } from '../ui/Card';
 
-export const DashboardView = ({ items, onViewInventory, onAddItem }: { items: Item[], onViewInventory: () => void, onAddItem: () => void }) => {
+export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, onLogout }: {
+    items: Item[],
+    onViewInventory: () => void,
+    onAddItem: () => void,
+    userEmail?: string,
+    onLogout: () => void
+}) => {
     const [chartMonths, setChartMonths] = useState<3 | 12>(3);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     const stats = useMemo(() => {
         const soldItems = items.filter(i => i.status === 'sold');
@@ -63,103 +70,109 @@ export const DashboardView = ({ items, onViewInventory, onAddItem }: { items: It
     return (
         <FadeIn className="pb-safe">
             <div className="px-6 pt-6 pb-6">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6 relative z-50">
                     <div>
-                        <h1 className="font-serif font-bold text-2xl text-stone-900">Dashboard</h1>
+                        <h1 className="font-serif font-bold text-3xl text-stone-900">Dashboard</h1>
                         <p className="text-stone-500 text-sm">Willkommen zurück</p>
                     </div>
-                    <div className="w-10 h-10 bg-stone-200 rounded-full overflow-hidden border-2 border-white shadow-sm">
-                        <div className="w-full h-full bg-gradient-to-br from-stone-400 to-stone-600"></div>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsProfileOpen(!isProfileOpen)}
+                            className="w-10 h-10 bg-stone-200 rounded-full overflow-hidden border-2 border-white shadow-sm active:scale-95 transition-transform"
+                        >
+                            <div className="w-full h-full bg-gradient-to-br from-stone-400 to-stone-600"></div>
+                        </button>
+
+                        {isProfileOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                                <div className="absolute right-0 top-12 w-64 bg-white rounded-2xl shadow-xl border border-stone-100 p-4 z-50 animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="flex items-center mb-4 pb-4 border-b border-stone-100">
+                                        <div className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-500 mr-3">
+                                            <User className="w-5 h-5" />
+                                        </div>
+                                        <div className="overflow-hidden">
+                                            <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Angemeldet als</p>
+                                            <p className="text-sm font-medium text-stone-900 truncate">{userEmail || 'Benutzer'}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={onLogout}
+                                        className="w-full flex items-center px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors text-sm font-medium"
+                                    >
+                                        <LogOut className="w-4 h-4 mr-2" />
+                                        Abmelden
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                {/* Hero Card: Financial Overview */}
-                <Card className="p-6 bg-stone-900 text-white mb-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-8">
-                            <div>
-                                <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-1">Gewinn (Monat)</p>
-                                <h2 className="text-4xl font-serif font-bold">
-                                    <AnimatedNumber value={stats.monthlyProfit} format={(val) => formatCurrency(val)} />
-                                </h2>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl">
-                                <Sparkles className="w-5 h-5 text-yellow-200" />
-                            </div>
+                {/* Hero Card: Financial Overview (Clean White Style) */}
+                <Card className="p-8 bg-white shadow-lg shadow-stone-200/50 mb-6 relative overflow-hidden border border-stone-100">
+                    <div className="flex justify-between items-start mb-8">
+                        <div>
+                            <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-2">Gewinn (Monat)</p>
+                            <h2 className="text-4xl font-serif font-bold text-stone-900">
+                                <AnimatedNumber value={stats.monthlyProfit} format={(val) => formatCurrency(val)} />
+                            </h2>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div>
-                                <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-1">Umsatz</p>
-                                <span className="font-medium text-lg text-stone-200">
-                                    <AnimatedNumber value={stats.monthlyRevenue} format={(val) => formatCurrency(val)} />
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-1">Ausgaben</p>
-                                <span className="font-medium text-lg text-stone-300">
-                                    <AnimatedNumber value={stats.monthlyExpenses} format={(val) => formatCurrency(val)} />
-                                </span>
-                            </div>
+                        <div className="bg-yellow-50 p-2 rounded-xl">
+                            <Sparkles className="w-5 h-5 text-yellow-500" />
                         </div>
+                    </div>
 
-                        {/* Bottom: KPIs */}
-                        <div className="flex gap-3">
-                            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex-1">
-                                <span className="block text-xs opacity-60 mb-0.5">Verkäufe</span>
-                                <span className="font-bold">{stats.monthlySoldCount}</span>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex-1">
-                                <span className="block text-xs opacity-60 mb-0.5">Marge %</span>
-                                <span className="font-bold">
-                                    <AnimatedNumber value={stats.marginPercentage} format={(val) => `${val.toFixed(1)}%`} />
-                                </span>
-                            </div>
+                    <div className="grid grid-cols-2 gap-8">
+                        <div>
+                            <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-1">Umsatz</p>
+                            <span className="font-medium text-xl text-stone-900">
+                                <AnimatedNumber value={stats.monthlyRevenue} format={(val) => formatCurrency(val)} />
+                            </span>
+                        </div>
+                        <div>
+                            <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-1">Ausgaben</p>
+                            <span className="font-medium text-xl text-stone-900">
+                                <AnimatedNumber value={stats.monthlyExpenses} format={(val) => formatCurrency(val)} />
+                            </span>
                         </div>
                     </div>
                 </Card>
 
-                {/* Inventory Preview */}
-                <div className="mb-6 flex items-center justify-between">
-                    <h3 className="font-bold text-stone-900 text-lg">Inventar</h3>
-                    <button onClick={onViewInventory} className="text-sm font-medium text-stone-500 flex items-center hover:text-stone-900 transition-colors">
-                        Alle anzeigen <ArrowRight className="w-4 h-4 ml-1" />
-                    </button>
-                </div>
-
-                <div className="space-y-3 mb-24">
-                    {inStockItems.slice(0, 3).map(item => (
-                        <Card key={item.id} className="flex items-center p-3 active:scale-95 transition-transform">
-                            <div className="w-12 h-12 bg-stone-100 rounded-xl flex-shrink-0 overflow-hidden">
-                                {item.imageUrls?.[0] ? (
-                                    <img src={item.imageUrls[0]} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-stone-300">
-                                        <Package className="w-5 h-5" />
-                                    </div>
-                                )}
+                {/* Stock Overview */}
+                <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-bold text-stone-900 text-lg">Inventar</h3>
+                        <button onClick={onViewInventory} className="text-sm font-medium text-stone-500 flex items-center hover:text-stone-900 transition-colors">
+                            Alle anzeigen <ArrowRight className="w-4 h-4 ml-1" />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Card className="p-4 flex flex-col justify-between bg-white border border-stone-100">
+                            <div className="w-8 h-8 bg-stone-100 rounded-full flex items-center justify-center mb-3 text-stone-600">
+                                <Package className="w-4 h-4" />
                             </div>
-                            <div className="ml-3 flex-1 min-w-0">
-                                <div className="flex justify-between items-start">
-                                    <h4 className="font-bold text-stone-900 truncate">{item.brand}</h4>
-                                    <span className="text-xs font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
-                                        {formatCurrency(item.purchasePriceEur)}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-stone-500 truncate">{item.model}</p>
+                            <div>
+                                <span className="block text-2xl font-bold text-stone-900">{stats.stockCount}</span>
+                                <span className="text-xs text-stone-500 font-medium">Artikel im Lager</span>
                             </div>
                         </Card>
-                    ))}
-
-                    <button onClick={onAddItem} className="w-full py-4 rounded-2xl border-2 border-dashed border-stone-200 text-stone-400 font-medium flex items-center justify-center hover:border-stone-400 hover:text-stone-600 transition-colors">
-                        <span className="mr-2">+</span> Artikel hinzufügen
-                    </button>
+                        <Card className="p-4 flex flex-col justify-between bg-white border border-stone-100">
+                            <div className="w-8 h-8 bg-stone-100 rounded-full flex items-center justify-center mb-3 text-stone-600">
+                                <Euro className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <span className="block text-2xl font-bold text-stone-900">
+                                    <AnimatedNumber value={stats.inventoryValue} format={(val) => formatCurrency(val)} />
+                                </span>
+                                <span className="text-xs text-stone-500 font-medium">Warenwert</span>
+                            </div>
+                        </Card>
+                    </div>
                 </div>
 
                 {/* Sales Chart */}
-                <Card className="p-6 mb-6">
+                <Card className="p-6 mb-6 bg-white border border-stone-100">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-stone-800">Umsatzentwicklung</h3>
                         <div className="flex bg-stone-100 p-1 rounded-lg">
@@ -181,7 +194,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem }: { items: It
                 </Card>
 
                 {/* Sales Channels */}
-                <Card className="p-6">
+                <Card className="p-6 bg-white border border-stone-100">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="font-bold text-stone-800">Top Verkaufskanäle</h3>
                         <ArrowRight className="w-4 h-4 text-stone-400" />
