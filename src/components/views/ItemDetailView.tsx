@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ArrowLeft, ZoomIn, Clock, Trash2, ShoppingBag } from 'lucide-react';
+import { X, ArrowLeft, ZoomIn, Clock, Trash2, ShoppingBag, Edit2, Share2 } from 'lucide-react';
 import { Item, Condition } from '../../types';
 import { calculateProfit, formatCurrency, formatDate, conditionLabels } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
@@ -7,7 +7,15 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { StatusBadge } from '../ui/StatusBadge';
 
-export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCancelReservation }: any) => {
+export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCancelReservation, onEdit }: {
+    item: Item,
+    onBack: () => void,
+    onSell: () => void,
+    onDelete: () => void,
+    onReserve: (id: string, name: string, days: number) => void,
+    onCancelReservation?: () => void,
+    onEdit?: () => void
+}) => {
     const profit = calculateProfit(item);
     const [isImageOpen, setIsImageOpen] = useState(false);
     const [isReserving, setIsReserving] = useState(false);
@@ -69,16 +77,21 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                     </div>
                 )}
 
-                <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start bg-gradient-to-b from-black/20 to-transparent pointer-events-none">
-                    <button onClick={(e) => { e.stopPropagation(); onBack(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/90 backdrop-blur shadow-sm z-10 pointer-events-auto">
-                        <ArrowLeft className="w-5 h-5 text-stone-900" />
+                <header className="px-6 py-6 flex items-center justify-between sticky top-0 z-20 pointer-events-none">
+                    <button onClick={onBack} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-stone-100 text-stone-600 active:scale-90 transition-transform pointer-events-auto">
+                        <ArrowLeft className="w-5 h-5" />
                     </button>
-
-                    <div className="flex space-x-2 pointer-events-auto">
-                        <StatusBadge status={item.status} />
+                    <div className="flex gap-2 pointer-events-auto">
+                        {onEdit && (
+                            <button onClick={onEdit} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-stone-100 text-stone-600 active:scale-90 transition-transform">
+                                <Edit2 className="w-4 h-4" />
+                            </button>
+                        )}
+                        <button className="w-10 h-10 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-stone-100 text-stone-600 active:scale-90 transition-transform">
+                            <Share2 className="w-4 h-4" />
+                        </button>
                     </div>
-                </div>
-
+                </header>
                 <div className="absolute bottom-12 right-6 bg-black/40 text-white px-2 py-1 rounded-full backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <ZoomIn className="w-4 h-4" />
                 </div>

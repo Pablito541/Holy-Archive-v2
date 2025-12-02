@@ -17,6 +17,8 @@ import { ActionMenu } from '../components/views/ActionMenu';
 import { Navigation } from '../components/views/Navigation';
 import { useToast } from '../components/ui/Toast';
 
+const PAGE_SIZE = 50;
+
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [view, setView] = useState('login');
@@ -25,6 +27,9 @@ export default function Home() {
   const [selectionMode, setSelectionMode] = useState<'view' | 'sell'>('view');
 
   const [items, setItems] = useState<Item[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 1. Auth & Data Loading
   useEffect(() => {
@@ -53,52 +58,78 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    async function loadData() {
-      if (supabase) {
-        if (!user) return; // Wait for auth
+  const loadData = async (pageToLoad: number = 0, reset: boolean = false) => {
+    if (!supabase || !user) return;
 
-        // Lade von DB
-        const { data, error } = await supabase.from('items').select('*').order('created_at', { ascending: false });
-        if (data && !error) {
-          const mappedItems: Item[] = data.map((d: any) => ({
-            id: d.id,
-            brand: d.brand,
-            model: d.model,
-            category: d.category,
-            condition: d.condition,
-            status: d.status,
-            purchasePriceEur: d.purchase_price_eur,
-            purchaseDate: d.purchase_date,
-            purchaseSource: d.purchase_source,
-            salePriceEur: d.sale_price_eur,
-            saleDate: d.sale_date,
-            saleChannel: d.sale_channel,
-            platformFeesEur: d.platform_fees_eur,
-            shippingCostEur: d.shipping_cost_eur,
-            reservedFor: d.reserved_for,
-            reservedUntil: d.reserved_until,
-            imageUrls: d.image_urls || [],
-            notes: d.notes,
-            createdAt: d.created_at
-          }));
+    setIsLoading(true);
+    try {
+      const from = pageToLoad * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (data && !error) {
+        const mappedItems: Item[] = data.map((d: any) => ({
+          id: d.id,
+          brand: d.brand,
+          model: d.model,
+          category: d.category,
+          condition: d.condition,
+          status: d.status,
+          purchasePriceEur: d.purchase_price_eur,
+          purchaseDate: d.purchase_date,
+          purchaseSource: d.purchase_source,
+          salePriceEur: d.sale_price_eur,
+          saleDate: d.sale_date,
+          saleChannel: d.sale_channel,
+          platformFeesEur: d.platform_fees_eur,
+          shippingCostEur: d.shipping_cost_eur,
+          reservedFor: d.reserved_for,
+          reservedUntil: d.reserved_until,
+          imageUrls: d.image_urls || [],
+          notes: d.notes,
+          createdAt: d.created_at
+        }));
+
+        if (reset) {
           setItems(mappedItems);
+        } else {
+          setItems(prev => [...prev, ...mappedItems]);
         }
-      } else {
-        // Lade von LocalStorage
-        try {
-          const saved = localStorage.getItem('vintage_items');
-          if (saved) setItems(JSON.parse(saved));
-        } catch (e) { console.error(e); }
+
+        setHasMore(mappedItems.length === PAGE_SIZE);
       }
+    } catch (e) {
+      console.error('Error loading data:', e);
+    } finally {
+      setIsLoading(false);
     }
-    loadData();
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadData(0, true);
+    } else {
+      // Lade von LocalStorage fallback
+      try {
+        const saved = localStorage.getItem('vintage_items');
+        if (saved) setItems(JSON.parse(saved));
+      } catch (e) { console.error(e); }
+    }
   }, [user]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadData(nextPage, false);
+  };
 
   // 2. Speichern / Update Logik
   const { showToast } = useToast();
-
-  // ...
 
   const handleCreateItem = async (data: Partial<Item>) => {
     try {
@@ -172,90 +203,103 @@ export default function Home() {
     }
   };
 
-  const handleDeleteItem = async (id: string) => {
-    if (confirm('Wirklich löschen?')) {
+  const handleUpdateItem = async (id: string, data: Partial<Item>) => {
+    try {
       if (supabase) {
-        const { error } = await supabase.from('items').delete().eq('id', id);
-        if (error) {
-          showToast(`Fehler beim Löschen: ${error.message}`, 'error');
-          return;
-        }
+        const dbUpdate = {
+          brand: data.brand,
+          model: data.model,
+          category: data.category,
+          condition: data.condition,
+          purchase_price_eur: data.purchasePriceEur,
+          purchase_date: data.purchaseDate,
+          purchase_source: data.purchaseSource,
+          image_urls: data.imageUrls,
+          notes: data.notes
+        };
+
+        const { error } = await supabase
+          .from('items')
+          .update(dbUpdate)
+          .eq('id', id);
+
+        if (error) throw error;
       }
-      const newItems = items.filter(i => i.id !== id);
-      setItems(newItems);
-      if (!supabase) localStorage.setItem('vintage_items', JSON.stringify(newItems));
-      setView('inventory');
-      showToast('Artikel gelöscht', 'info');
+
+      setItems(prev => prev.map(item =>
+        item.id === id ? { ...item, ...data } : item
+      ));
+
+      showToast('Artikel aktualisiert', 'success');
+      setView('item-detail');
+    } catch (e: any) {
+      console.error('Update Error:', e);
+      showToast('Fehler beim Aktualisieren', 'error');
     }
   };
 
-  const handleSellItem = async (saleData: Partial<Item>) => {
-    if (!selectedItemId) return;
-
+  const handleSellItem = async (id: string, saleData: any) => {
     try {
-      const dbUpdate = {
-        status: 'sold',
-        sale_price_eur: saleData.salePriceEur,
-        sale_date: saleData.saleDate,
-        sale_channel: saleData.saleChannel,
-        platform_fees_eur: saleData.platformFeesEur,
-        shipping_cost_eur: saleData.shippingCostEur,
-        reserved_for: null,
-        reserved_until: null
-      };
-
       if (supabase) {
-        const { error } = await supabase.from('items').update(dbUpdate).eq('id', selectedItemId);
-        if (error) {
-          console.error('Supabase Update Error:', error);
-          showToast(`Fehler beim Verkauf: ${error.message}`, 'error');
-          return;
-        }
+        const { error } = await supabase.from('items').update({
+          status: 'sold',
+          sale_price_eur: saleData.salePriceEur,
+          sale_date: saleData.saleDate,
+          sale_channel: saleData.saleChannel,
+          platform_fees_eur: saleData.platformFeesEur,
+          shipping_cost_eur: saleData.shippingCostEur
+        }).eq('id', id);
+
+        if (error) throw error;
       }
 
       setItems(prev => prev.map(item => {
-        if (item.id === selectedItemId) {
+        if (item.id === id) {
           return {
             ...item,
-            ...saleData,
             status: 'sold',
-            reservedFor: undefined,
-            reservedUntil: undefined
+            ...saleData
           };
         }
         return item;
       }));
-
-      if (!supabase) {
-        // update local storage logic omitted
-      }
-
-      setView('dashboard');
-      showToast('Artikel erfolgreich verkauft!', 'success');
+      showToast('Artikel als verkauft markiert', 'success');
+      setView('inventory');
+      setSelectionMode('view');
     } catch (e) {
-      console.error('Sell Error:', e);
-      showToast('Fehler beim Speichern des Verkaufs', 'error');
+      console.error(e);
+      showToast('Fehler beim Verkauf', 'error');
+    }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    if (!confirm('Wirklich löschen?')) return;
+    try {
+      if (supabase) {
+        const { error } = await supabase.from('items').delete().eq('id', id);
+        if (error) throw error;
+      }
+      setItems(prev => prev.filter(i => i.id !== id));
+      showToast('Artikel gelöscht', 'success');
+      setView('inventory');
+    } catch (e) {
+      console.error(e);
+      showToast('Fehler beim Löschen', 'error');
     }
   };
 
   const handleReserveItem = async (id: string, name: string, days: number) => {
     try {
-      const until = new Date();
-      until.setDate(until.getDate() + days);
-      const isoDate = until.toISOString();
+      const reservedUntil = new Date();
+      reservedUntil.setDate(reservedUntil.getDate() + days);
 
       if (supabase) {
         const { error } = await supabase.from('items').update({
           status: 'reserved',
           reserved_for: name,
-          reserved_until: isoDate
+          reserved_until: reservedUntil.toISOString()
         }).eq('id', id);
-
-        if (error) {
-          console.error('Reserve Error:', error);
-          showToast(`Fehler beim Reservieren: ${error.message}`, 'error');
-          return;
-        }
+        if (error) throw error;
       }
 
       setItems(prev => prev.map(item => {
@@ -264,15 +308,14 @@ export default function Home() {
             ...item,
             status: 'reserved',
             reservedFor: name,
-            reservedUntil: isoDate
+            reservedUntil: reservedUntil.toISOString()
           };
         }
         return item;
       }));
-
-      showToast(`Artikel für ${name} reserviert`, 'success');
+      showToast('Artikel reserviert', 'success');
     } catch (e) {
-      console.error('Reserve Error:', e);
+      console.error(e);
       showToast('Fehler beim Reservieren', 'error');
     }
   };
@@ -285,12 +328,7 @@ export default function Home() {
           reserved_for: null,
           reserved_until: null
         }).eq('id', id);
-
-        if (error) {
-          console.error('Cancel Reservation Error:', error);
-          showToast(`Fehler: ${error.message}`, 'error');
-          return;
-        }
+        if (error) throw error;
       }
 
       setItems(prev => prev.map(item => {
@@ -304,84 +342,111 @@ export default function Home() {
         }
         return item;
       }));
-
-      showToast('Reservierung aufgehoben', 'info');
+      showToast('Reservierung aufgehoben', 'success');
     } catch (e) {
-      console.error('Cancel Reservation Error:', e);
+      console.error(e);
       showToast('Fehler beim Aufheben der Reservierung', 'error');
     }
   };
 
-  const handleAction = (action: 'buy' | 'sell') => {
-    setShowActionMenu(false);
-    if (action === 'buy') {
-      setView('add');
-    } else {
-      setSelectionMode('sell');
-      setView('inventory');
+  const renderContent = () => {
+    if (view === 'login') return <LoginView onLogin={(u) => { setUser(u); setView('dashboard'); }} />;
+
+    if (view === 'dashboard') return (
+      <DashboardView
+        items={items}
+        onViewInventory={() => setView('inventory')}
+        onAddItem={() => setView('add-item')}
+      />
+    );
+
+    if (view === 'inventory') return (
+      <InventoryView
+        items={items}
+        onSelectItem={(id) => { setSelectedItemId(id); setView('item-detail'); }}
+        selectionMode={selectionMode}
+        onLoadMore={handleLoadMore}
+        hasMore={hasMore}
+      />
+    );
+
+    if (view === 'add-item') return (
+      <AddItemView
+        onSave={handleCreateItem}
+        onCancel={() => setView('dashboard')}
+      />
+    );
+
+    if (view === 'edit-item' && selectedItemId) {
+      const itemToEdit = items.find(i => i.id === selectedItemId);
+      if (!itemToEdit) return null;
+      return (
+        <AddItemView
+          initialData={itemToEdit}
+          onSave={(data) => handleUpdateItem(selectedItemId, data)}
+          onCancel={() => setView('item-detail')}
+        />
+      );
     }
+
+    if (view === 'sell-item' && selectedItemId) {
+      const itemToSell = items.find(i => i.id === selectedItemId);
+      if (!itemToSell) return null;
+      return (
+        <SellItemView
+          item={itemToSell}
+          onConfirm={(data) => handleSellItem(selectedItemId, data)}
+          onCancel={() => setView('item-detail')}
+        />
+      );
+    }
+
+    if (view === 'item-detail' && selectedItemId) {
+      const item = items.find(i => i.id === selectedItemId);
+      if (!item) return null;
+      return (
+        <ItemDetailView
+          item={item}
+          onBack={() => setView('inventory')}
+          onSell={() => setView('sell-item')}
+          onDelete={() => handleDeleteItem(selectedItemId)}
+          onReserve={handleReserveItem}
+          onCancelReservation={() => handleCancelReservation(selectedItemId)}
+          onEdit={() => setView('edit-item')}
+        />
+      );
+    }
+
+    if (view === 'export') return <ExportView items={items} />;
+
+    return null;
   };
 
-  useEffect(() => {
-    if (view !== 'inventory' && view !== 'detail' && view !== 'sell') {
-      setSelectionMode('view');
-    }
-  }, [view]);
-
-  let content;
-  const showNav = ['dashboard', 'inventory', 'export'].includes(view);
-
-  if (!user) return <LoginView onLogin={() => { /* Auth listener handles state */ }} />;
-
-  switch (view) {
-    case 'dashboard': content = <DashboardView items={items} />; break;
-    case 'inventory':
-      content = <InventoryView
-        items={items}
-        selectionMode={selectionMode}
-        onSelectItem={(id) => {
-          setSelectedItemId(id);
-          if (selectionMode === 'sell') {
-            setView('sell');
-          } else {
-            setView('detail');
-          }
-        }}
-      />;
-      break;
-    case 'add': content = <AddItemView onSave={handleCreateItem} onCancel={() => setView('inventory')} />; break;
-    case 'detail':
-      const selectedItem = items.find(i => i.id === selectedItemId);
-      content = selectedItem ? (
-        <ItemDetailView
-          item={selectedItem}
-          onBack={() => setView('inventory')}
-          onSell={() => setView('sell')}
-          onDelete={() => handleDeleteItem(selectedItem.id)}
-          onReserve={handleReserveItem}
-          onCancelReservation={() => handleCancelReservation(selectedItem.id)}
-        />
-      ) : null;
-      break;
-    case 'sell':
-      const itemToSell = items.find(i => i.id === selectedItemId);
-      content = itemToSell ? <SellItemView item={itemToSell} onSave={handleSellItem} onCancel={() => {
-        if (selectionMode === 'sell') {
-          setView('inventory');
-        } else {
-          setView('detail');
-        }
-      }} /> : null;
-      break;
-    case 'export': content = <ExportView items={items} />; break;
-    default: content = <DashboardView items={items} />;
-  }
-
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-[#fafaf9] shadow-2xl relative">
-      {content}
-      {showNav && <Navigation currentView={view} setView={setView} onOpenAction={() => setShowActionMenu(true)} />}
-      {showActionMenu && <ActionMenu onClose={() => setShowActionMenu(false)} onAction={handleAction} />}
+    <div className="min-h-screen bg-[#fafaf9] font-sans text-stone-900 pb-20">
+      {renderContent()}
+
+      {view !== 'login' && (
+        <Navigation
+          currentView={view}
+          onNavigate={(v) => {
+            if (v === 'add-item') {
+              setShowActionMenu(true);
+            } else {
+              setView(v);
+              setSelectionMode('view');
+            }
+          }}
+        />
+      )}
+
+      {showActionMenu && (
+        <ActionMenu
+          onClose={() => setShowActionMenu(false)}
+          onAddItem={() => { setShowActionMenu(false); setView('add-item'); }}
+          onSellItem={() => { setShowActionMenu(false); setView('inventory'); setSelectionMode('sell'); }}
+        />
+      )}
     </div>
   );
 }

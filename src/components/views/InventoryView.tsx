@@ -4,7 +4,12 @@ import { Item, ItemStatus } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 
-export const InventoryView = ({ items, onSelectItem, selectionMode }: { items: Item[], onSelectItem: (id: string) => void, selectionMode?: 'sell' | 'view' }) => {
+export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore }: {
+    items: Item[], onSelectItem: (id: string) => void;
+    onLoadMore?: () => void;
+    hasMore?: boolean;
+    selectionMode?: 'sell' | 'view'
+}) => {
     const [filter, setFilter] = useState<ItemStatus>('in_stock');
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -60,8 +65,8 @@ export const InventoryView = ({ items, onSelectItem, selectionMode }: { items: I
                                 key={status}
                                 onClick={() => setFilter(status)}
                                 className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${filter === status
-                                        ? 'bg-stone-900 text-white shadow-md'
-                                        : 'text-stone-400 hover:text-stone-600'
+                                    ? 'bg-stone-900 text-white shadow-md'
+                                    : 'text-stone-400 hover:text-stone-600'
                                     }`}
                             >
                                 {status === 'in_stock' ? 'Lager' : status === 'sold' ? 'Verkauft' : 'Reserviert'}
@@ -122,6 +127,17 @@ export const InventoryView = ({ items, onSelectItem, selectionMode }: { items: I
                     ))
                 )}
             </div>
+            {/* Load More Button */}
+            {onLoadMore && hasMore && (
+                <div className="mt-8 text-center">
+                    <button
+                        onClick={onLoadMore}
+                        className="px-6 py-2 bg-white border border-stone-200 rounded-full text-sm font-medium text-stone-600 shadow-sm hover:bg-stone-50 active:scale-95 transition-all"
+                    >
+                        Mehr laden
+                    </button>
+                </div>
+            )}
         </FadeIn>
     );
 };

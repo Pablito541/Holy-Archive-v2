@@ -8,8 +8,8 @@ import { Button } from '../ui/Button';
 
 import { supabase } from '../../lib/supabase';
 
-export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>) => void, onCancel: () => void }) => {
-    const [formData, setFormData] = useState<Partial<Item>>({
+export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: Partial<Item>) => void, onCancel: () => void, initialData?: Item }) => {
+    const [formData, setFormData] = useState<Partial<Item>>(initialData || {
         brand: '',
         category: 'bag',
         condition: 'good',
@@ -24,7 +24,7 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(initialData?.imageUrls?.[0] || null);
 
     const handleChange = (field: keyof Item, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -88,7 +88,7 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
                 <button onClick={onCancel} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white shadow-sm border border-stone-100 text-stone-600 active:scale-90 transition-transform">
                     <X className="w-5 h-5" />
                 </button>
-                <h2 className="font-serif font-bold text-xl">Neuer Artikel</h2>
+                <h2 className="font-serif font-bold text-xl">{initialData ? 'Artikel bearbeiten' : 'Neuer Artikel'}</h2>
                 <div className="w-8"></div>
             </header>
 
@@ -213,7 +213,7 @@ export const AddItemView = ({ onSave, onCancel }: { onSave: (item: Partial<Item>
 
                 <Button type="submit" className="w-full shadow-2xl shadow-stone-900/20" disabled={isSubmitting} loading={isSubmitting}>
                     <Save className="w-4 h-4 mr-2" />
-                    Artikel anlegen
+                    {initialData ? 'Änderungen speichern' : 'Artikel anlegen'}
                 </Button>
             </form>
         </FadeIn>

@@ -7,7 +7,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 
-export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (data: Partial<Item>) => void, onCancel: () => void }) => {
+export const SellItemView = ({ item, onConfirm, onCancel }: { item: Item, onConfirm: (data: Partial<Item>) => void, onCancel: () => void }) => {
     const [formData, setFormData] = useState({
         salePriceEur: 0,
         saleDate: new Date().toISOString().split('T')[0],
@@ -17,6 +17,11 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
     });
 
     const profit = formData.salePriceEur - item.purchasePriceEur - formData.platformFeesEur - formData.shippingCostEur;
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onConfirm(formData);
+    };
 
     return (
         <FadeIn className="bg-[#fafaf9] min-h-screen pb-safe">
@@ -28,7 +33,7 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
                 <div className="w-8"></div>
             </header>
 
-            <div className="px-6 space-y-6 max-w-lg mx-auto">
+            <form onSubmit={handleSubmit} className="px-6 space-y-6 max-w-lg mx-auto">
                 <div className="bg-white p-4 rounded-3xl flex items-center shadow-sm border border-stone-100">
                     <div className="w-16 h-16 bg-stone-100 rounded-2xl mr-4 flex items-center justify-center relative overflow-hidden">
                         {item.imageUrls && item.imageUrls[0] ? <img src={item.imageUrls[0]} className="w-full h-full object-cover" /> : <ShoppingBag className="w-6 h-6 text-stone-300" />}
@@ -101,13 +106,13 @@ export const SellItemView = ({ item, onSave, onCancel }: { item: Item, onSave: (
                 </div>
 
                 <Button
-                    onClick={() => onSave(formData)}
+                    type="submit"
                     className="w-full mt-4"
                     variant="primary"
                 >
                     Als Verkauft bestätigen
                 </Button>
-            </div>
+            </form>
         </FadeIn>
     );
 };

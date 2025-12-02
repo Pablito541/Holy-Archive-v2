@@ -6,7 +6,7 @@ import { Button } from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../ui/Toast';
 
-export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
+export const LoginView = ({ onLogin }: { onLogin: (user: any) => void }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -19,13 +19,13 @@ export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
         if (!supabase) {
             // Fallback for demo/no-supabase mode
             setTimeout(() => {
-                onLogin();
+                onLogin({ email: 'demo@example.com' });
                 setLoading(false);
             }, 1000);
             return;
         }
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password
         });
@@ -36,7 +36,9 @@ export const LoginView = ({ onLogin }: { onLogin: () => void }) => {
         } else {
             // Auth state change will be caught by page.tsx listener
             // But we can also call onLogin as a direct callback
-            onLogin();
+            if (data.user) {
+                onLogin(data.user);
+            }
         }
     };
 
