@@ -433,7 +433,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] font-sans text-stone-900 pb-20">
+    <div className="min-h-screen font-sans text-stone-900 dark:text-zinc-50 pb-20">
       {renderContent()}
 
       {view !== 'login' && (

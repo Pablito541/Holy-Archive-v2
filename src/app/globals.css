@@ -34,26 +34,27 @@
 }
 
 /* Dark Mode Colors - Following Best Practices */
+/* Dark Mode Colors - Following Best Practices */
 .dark {
-  /* Dark Mode Base - Not pure black, using very dark gray */
+  /* Dark Mode Base - Softer, Linear-style dark theme */
   --foreground-rgb: 250, 250, 249;
-  --background-start-rgb: 9, 9, 11;
-  /* zinc-950 */
-  --background-end-rgb: 9, 9, 11;
+  --background-start-rgb: 19, 19, 22;
+  /* #131316 - Softer than zinc-950 */
+  --background-end-rgb: 19, 19, 22;
 
   /* Dark Mode Surfaces - Layered elevation */
-  --surface-primary: 24, 24, 27;
-  /* zinc-900 - Cards */
-  --surface-secondary: 39, 39, 42;
-  /* zinc-800 - Elevated cards */
+  --surface-primary: 34, 34, 38;
+  /* #222226 - Lighter cards */
+  --surface-secondary: 44, 44, 49;
+  /* #2C2C31 - Elevated elements */
   --surface-elevated: 63, 63, 70;
   /* zinc-700 - Highest elevation */
 
   /* Dark Mode Shadows - Subtle depth */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.5);
 }
 
 /* Apply background to both html and body */
