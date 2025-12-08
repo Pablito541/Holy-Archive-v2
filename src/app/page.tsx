@@ -367,6 +367,7 @@ export default function Home() {
         onAddItem={() => setView('add-item')}
         userEmail={user?.email}
         onLogout={handleLogout}
+        onRefresh={() => loadData(0, true)}
       />
     );
 

@@ -25,23 +25,26 @@ export const SalesChart = ({ items, months = 12 }: { items: Item[], months: numb
         return data;
     }, [items, months]);
 
-    const maxVal = Math.max(...chartData.map(d => d.value), 1);
+    const maxVal = Math.max(...chartData.map(d => d.value), 100); // Minimum scale to prevent empty look
+
+    const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
 
     return (
         <div className="w-full h-48 flex items-end justify-between gap-2 pt-6">
             {chartData.map((d, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                    <div className="w-full relative flex items-end justify-center h-32 bg-stone-100/50 rounded-t-lg overflow-hidden">
+                <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setSelectedIndex(i === selectedIndex ? null : i)}>
+                    <div className="w-full relative flex items-end justify-center h-32 bg-stone-100 dark:bg-zinc-800 rounded-t-lg overflow-hidden">
                         <div
-                            className="w-full bg-stone-800 opacity-80 group-hover:opacity-100 transition-all duration-500 ease-out rounded-t-md relative"
+                            className={`w-full transition-all duration-500 ease-out rounded-t-md relative ${selectedIndex === i ? 'bg-stone-900 dark:bg-zinc-200' : 'bg-stone-800 dark:bg-zinc-400 opacity-80 group-hover:opacity-100'}`}
                             style={{ height: `${(d.value / maxVal) * 100}%` }}
                         >
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                            <div className={`absolute -top-10 left-1/2 -translate-x-1/2 bg-black dark:bg-white text-white dark:text-black text-[10px] px-2 py-1.5 rounded-lg shadow-xl whitespace-nowrap z-20 transition-all ${selectedIndex === i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0'}`}>
                                 {d.value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black dark:border-t-white"></div>
                             </div>
                         </div>
                     </div>
-                    <span className="text-[10px] text-stone-400 font-medium uppercase">{d.label}</span>
+                    <span className={`text-[10px] font-medium uppercase transition-colors ${selectedIndex === i ? 'text-stone-900 dark:text-zinc-200 font-bold' : 'text-stone-400 group-hover:text-stone-600 dark:group-hover:text-zinc-300'}`}>{d.label}</span>
                 </div>
             ))}
         </div>

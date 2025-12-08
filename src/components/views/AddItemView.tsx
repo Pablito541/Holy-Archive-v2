@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, Save, Image as ImageIcon } from 'lucide-react';
 import { Item } from '../../types';
 import { FadeIn } from '../ui/FadeIn';
@@ -31,6 +31,26 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
 
+    // Load saved data and setup persistence
+    useEffect(() => {
+        if (!initialData) {
+            const savedData = localStorage.getItem('add_item_draft');
+            if (savedData) {
+                try {
+                    setFormData(JSON.parse(savedData));
+                } catch (e) {
+                    console.error('Failed to parse draft', e);
+                }
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!initialData) {
+            localStorage.setItem('add_item_draft', JSON.stringify(formData));
+        }
+    }, [formData]);
+
     const handleChange = (field: keyof Item, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
@@ -44,6 +64,10 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPreviewUrl(reader.result as string);
+                // Also update form data for immediate visual feedback if using simple base64 persistence
+                if (!supabase && !initialData) {
+                    setFormData(prev => ({ ...prev, imageUrls: [reader.result as string] }));
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -97,6 +121,9 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
             }
 
             await onSave({ ...formData, imageUrls: finalImageUrls });
+            if (!initialData) {
+                localStorage.removeItem('add_item_draft');
+            }
         } catch (error) {
             console.error('Error saving item:', error);
             alert('Fehler beim Speichern. Bitte erneut versuchen.');
@@ -105,8 +132,8 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     };
 
     return (
-        <FadeIn className="bg-[#fafaf9] dark:bg-stone-950 min-h-screen pb-safe">
-            <header className="px-6 py-6 flex items-center justify-between sticky top-0 bg-[#fafaf9]/90 dark:bg-stone-950/90 backdrop-blur-xl z-20">
+        <FadeIn className="bg-[#fafaf9] dark:bg-stone-950 min-h-screen">
+            <header className="px-6 py-6 pt-safe flex items-center justify-between sticky top-0 bg-[#fafaf9] dark:bg-stone-950 z-20 border-b border-stone-100 dark:border-stone-900 shadow-sm">
                 <button onClick={onCancel} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white dark:bg-stone-900 shadow-sm border border-stone-100 dark:border-stone-800 text-stone-600 dark:text-stone-300 active:scale-90 transition-transform">
                     <X className="w-5 h-5" />
                 </button>

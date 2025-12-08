@@ -61,6 +61,8 @@ export const SellItemView = ({ item, onConfirm, onCancel }: { item: Item, onConf
                         options={[
                             { value: 'whatsapp', label: 'WhatsApp Gruppe' },
                             { value: 'vinted', label: 'Vinted' },
+                            { value: 'instagram', label: 'Instagram' },
+                            { value: 'vestiaire', label: 'Vestiaire Collective' },
                             { value: 'whatnot', label: 'Whatnot (Live)' },
                             { value: 'ebay', label: 'eBay' },
                             { value: 'other', label: 'Andere' }
