@@ -5,7 +5,7 @@ import { formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 import { PullToRefresh } from '../ui/PullToRefresh';
 
-export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh }: {
+export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh = async () => { } }: {
     items: Item[], onSelectItem: (id: string) => void;
     onLoadMore?: () => void;
     hasMore?: boolean;
