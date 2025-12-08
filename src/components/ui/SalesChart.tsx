@@ -30,7 +30,7 @@ export const SalesChart = ({ items, months = 12 }: { items: Item[], months: numb
     const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
 
     return (
-        <div className="w-full h-48 flex items-end justify-between gap-2 pt-6">
+        <div className="w-full h-48 flex items-end justify-between gap-2 pt-6 px-1">
             {chartData.map((d, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer relative" onClick={() => setSelectedIndex(i === selectedIndex ? null : i)}>
                     <div className="w-full relative flex items-end justify-center h-32 bg-stone-100 dark:bg-zinc-800 rounded-t-lg">

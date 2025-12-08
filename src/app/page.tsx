@@ -378,7 +378,7 @@ export default function Home() {
         selectionMode={selectionMode}
         onLoadMore={handleLoadMore}
         hasMore={hasMore}
-        onRefresh={loadData}
+        onRefresh={() => loadData(0, true)}
       />
     );
 
