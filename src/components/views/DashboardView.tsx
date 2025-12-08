@@ -207,7 +207,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                     {/* Charts in responsive grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Sales Chart */}
-                        <Card className="p-6 bg-white dark:bg-stone-900 border border-stone-100 dark:border-stone-800">
+                        <Card className="p-6 bg-white dark:bg-zinc-900 border border-stone-100 dark:border-zinc-800">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="font-bold text-stone-800 dark:text-zinc-200">Umsatzentwicklung</h3>
                                 <div className="flex bg-stone-100 dark:bg-zinc-800 p-1 rounded-lg">

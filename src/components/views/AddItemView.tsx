@@ -31,25 +31,31 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
 
-    // Load saved data and setup persistence
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    // Load saved data on mount
     useEffect(() => {
         if (!initialData) {
             const savedData = localStorage.getItem('add_item_draft');
             if (savedData) {
                 try {
-                    setFormData(JSON.parse(savedData));
+                    const parsed = JSON.parse(savedData);
+                    // Merge with defaults to ensure all fields exist
+                    setFormData(prev => ({ ...prev, ...parsed }));
                 } catch (e) {
                     console.error('Failed to parse draft', e);
                 }
             }
+            setIsLoaded(true);
         }
-    }, []);
+    }, [initialData]);
 
+    // Save data only when loaded and changed
     useEffect(() => {
-        if (!initialData) {
+        if (!initialData && isLoaded) {
             localStorage.setItem('add_item_draft', JSON.stringify(formData));
         }
-    }, [formData]);
+    }, [formData, isLoaded, initialData]);
 
     const handleChange = (field: keyof Item, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -132,9 +138,10 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     };
 
     return (
-        <FadeIn className="bg-[#fafaf9] dark:bg-stone-950 min-h-screen">
-            <header className="px-6 py-6 pt-safe flex items-center justify-between sticky top-0 bg-[#fafaf9] dark:bg-stone-950 z-20 border-b border-stone-100 dark:border-stone-900 shadow-sm">
-                <button onClick={onCancel} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white dark:bg-stone-900 shadow-sm border border-stone-100 dark:border-stone-800 text-stone-600 dark:text-stone-300 active:scale-90 transition-transform">
+        <FadeIn className="bg-[#fafaf9] dark:bg-black min-h-screen pb-safe">
+            <header className="px-6 py-4 pt-safe flex items-center justify-between sticky top-0 bg-[#fafaf9] dark:bg-stone-950 z-50 border-b border-stone-100 dark:border-stone-900 shadow-sm">
+                <button
+                    onClick={onCancel} className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full bg-white dark:bg-stone-900 shadow-sm border border-stone-100 dark:border-stone-800 text-stone-600 dark:text-stone-300 active:scale-90 transition-transform">
                     <X className="w-5 h-5" />
                 </button>
                 <h2 className="font-serif font-bold text-xl dark:text-stone-100">{initialData ? 'Artikel bearbeiten' : 'Neuer Artikel'}</h2>
