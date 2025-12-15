@@ -11,6 +11,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
     const [currentY, setCurrentY] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const lastRefreshRef = useRef<number>(0);
 
     // Threshold to trigger refresh
     const THRESHOLD = 80;
@@ -47,8 +48,19 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
             if (startY === 0 || isRefreshing) return;
 
             if (currentY > THRESHOLD) {
+                // Prevent rapid-fire refreshes (minimum 3 seconds between actions)
+                const now = Date.now();
+                if (now - lastRefreshRef.current < 3000) {
+                    setIsRefreshing(false);
+                    setCurrentY(0);
+                    setStartY(0);
+                    return;
+                }
+
                 setIsRefreshing(true);
                 setCurrentY(THRESHOLD); // Snap to threshold
+                lastRefreshRef.current = now;
+
                 try {
                     await onRefresh();
                 } finally {

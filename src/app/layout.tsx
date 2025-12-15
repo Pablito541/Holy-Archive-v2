@@ -30,6 +30,7 @@ export const metadata: Metadata = {
 
 import { ToastProvider } from "../components/ui/Toast";
 import { ThemeProvider } from "../components/providers/ThemeProvider";
+import { InstallPrompt } from "../components/ui/InstallPrompt";
 
 export default function RootLayout({
   children,
@@ -42,6 +43,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             {children}
+            <InstallPrompt />
           </ToastProvider>
         </ThemeProvider>
       </body>
