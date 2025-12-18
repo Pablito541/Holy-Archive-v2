@@ -10,6 +10,16 @@ const nextConfig = {
     // Warnung: Dies erlaubt den Build auch bei TypeScript-Fehlern
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'yrxkrnunsxfxilqdrepj.supabase.co',
+        port: '',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
 };
 
 export default withPWA(nextConfig);

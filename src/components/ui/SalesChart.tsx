@@ -19,7 +19,7 @@ export const SalesChart = ({ items, months = 12 }: { items: Item[], months: numb
                 return saleDate.getMonth() === month && saleDate.getFullYear() === year;
             });
 
-            const profit = monthlyItems.reduce((sum, item) => sum + calculateProfit(item), 0);
+            const profit = monthlyItems.reduce((sum, item) => sum + (calculateProfit(item) || 0), 0);
             data.push({ label: monthLabel, value: profit });
         }
         return data;

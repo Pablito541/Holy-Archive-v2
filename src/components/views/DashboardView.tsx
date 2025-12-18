@@ -36,7 +36,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
             return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
 
-        const monthlyProfit = monthlySoldItems.reduce((sum, item) => sum + calculateProfit(item), 0);
+        const monthlyProfit = monthlySoldItems.reduce((sum, item) => sum + (calculateProfit(item) || 0), 0);
         const monthlyRevenue = monthlySoldItems.reduce((sum, item) => sum + (item.salePriceEur || 0), 0);
         const monthlyExpenses = monthlySoldItems.reduce((sum, item) => sum + item.purchasePriceEur + (item.shippingCostEur || 0) + (item.platformFeesEur || 0), 0);
 

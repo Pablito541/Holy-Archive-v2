@@ -105,7 +105,7 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                     <div className="p-6 bg-stone-900 text-stone-50 rounded-3xl relative overflow-hidden">
                         <div className="relative z-10">
                             <div className="flex justify-between items-center mb-4 opacity-80 text-sm">
-                                <span>Verkauf am {formatDate(item.saleDate)}</span>
+                                <span>Verkauf am {formatDate(item.saleDate || '')}</span>
                                 <span>{item.saleChannel}</span>
                             </div>
                             <div className="flex justify-between items-end border-t border-white/20 pt-4">
