@@ -69,17 +69,8 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         handleImageSelect(e);
-        // Important: When user selects a new local file, we might want to 
-        // optimistically show it in the formData imageUrls if we were using that logic,
-        // but the hook manages the preview separately.
-        // The original code tried to persist immediate preview to formData.
-        // We can optionally do:
-        // if (e.target.files?.[0]) {
-        //    const reader = new FileReader();
-        //    reader.onloadend = () => setFormData(prev => ({ ...prev, imageUrls: [reader.result as string] }));
-        //    reader.readAsDataURL(e.target.files[0]);
-        // }
-        // BUT the hook encapsulates this 'previewUrl' state now, which is cleaner.
+        // The hook (useImageUpload) manages the preview separately from formData,
+        // ensuring binary data isn't unnecessarily synchronized with item state.
     };
 
     const handleSubmit = async (e: React.FormEvent) => {

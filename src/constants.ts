@@ -28,3 +28,5 @@ export const CONDITIONS: { value: Condition, label: string }[] = [
     { value: 'fair', label: 'Akzeptabel' },
     { value: 'poor', label: 'Schlecht' }
 ];
+
+export const SHOWROOM_SLUG = "holy-archive";

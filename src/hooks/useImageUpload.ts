@@ -25,8 +25,11 @@ export const useImageUpload = (initialImageUrl?: string) => {
         if (!selectedFile) return previewUrl; // Return existing URL if no new file selected
 
         if (!supabase) {
-            // Fallback for local dev without Supabase: use Base64 preview
-            return previewUrl;
+            // Fallback for local dev without Supabase: 
+            // We used to return base64 here, but that crashes the showroom.
+            // Better to return the original if it's a URL, or null if it's base64.
+            console.warn('Supabase not initialized, blocking base64 upload fallback.');
+            return previewUrl?.startsWith('http') ? previewUrl : null;
         }
 
         setIsUploading(true);

@@ -1,8 +1,17 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import fs from 'fs';
+import path from 'path';
+
+function log(msg: string) {
+    const logPath = path.resolve(process.cwd(), 'server-debug.log');
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+}
 
 export async function createClient() {
+    log('createClient: calling cookies()...');
     const cookieStore = await cookies()
+    log('createClient: cookies() returned.');
 
     return createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,

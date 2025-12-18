@@ -8,10 +8,9 @@ import { WhatsAppButton } from "./WhatsAppButton";
 
 export function ProductCard({ item }: { item: Item }) {
     const mainImage = item.imageUrls?.[0] || "/placeholder.png";
-    const { slug } = useParams();
 
     return (
-        <Link href={`/shop/${slug}/collection/${item.id}`} className="group block">
+        <Link href={`/showroom/${item.id}`} className="group block">
             <div className="bg-white rounded-xl overflow-hidden border border-black/5 hover:shadow-lg transition-all duration-300">
                 <div className="relative aspect-[4/5] bg-[#f0f0f0] overflow-hidden">
                     {/* Use a standard img for simplicity if remote patterns not configured, else Image with fill */}

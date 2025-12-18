@@ -1,60 +1,66 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { FadeIn } from "../ui/FadeIn";
 import { ArrowRight, Lock } from "lucide-react";
 
-// Initialize client directly here or import shared client if public env vars are set
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export function AccessGate() {
+import { SHOWROOM_SLUG } from "@/constants";
+
+interface AccessGateProps {
+    onSuccess?: () => void;
+    slug?: string;
+    initialOrgName?: string;
+    initialOrgId?: string;
+}
+
+export function AccessGate({ onSuccess, slug = SHOWROOM_SLUG, initialOrgName, initialOrgId }: AccessGateProps) {
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
-    const { slug } = useParams();
 
     const memberKey = `member_of_${slug}`;
-
-    useEffect(() => {
-        // Redirect if already a member of *this* organization
-        if (localStorage.getItem(memberKey)) {
-            router.push(`/shop/${slug}/collection`);
-        }
-    }, [router, slug, memberKey]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
-            // 1. Resolve Slug to Organization ID
-            const { data: org, error: orgError } = await supabase
-                .from("organizations")
-                .select("id, name")
-                .eq("slug", slug)
-                .single();
+            let targetOrgId = initialOrgId;
 
-            if (orgError || !org) {
-                alert("Showroom not found.");
-                setLoading(false);
-                return;
+            // Only fetch if orgId wasn't provided
+            if (!targetOrgId) {
+                const { data: org, error: orgError } = await supabase
+                    .from("organizations")
+                    .select("id")
+                    .eq("slug", slug)
+                    .single();
+
+                if (orgError || !org) {
+                    alert("Showroom not found.");
+                    setLoading(false);
+                    return;
+                }
+                targetOrgId = org.id;
             }
 
             // 2. Insert Lead with Organization ID
             const { error } = await supabase.from("leads").insert([
-                { email, name, source: "showroom_gate", organization_id: org.id },
+                { email, name, source: "showroom_gate", organization_id: targetOrgId },
             ]);
 
             if (error) throw error;
 
             // 3. Set "Token"
             localStorage.setItem(memberKey, "true");
-            router.push(`/shop/${slug}/collection`);
+
+            if (onSuccess) {
+                onSuccess();
+            }
         } catch (error) {
             console.error("Error joining:", error);
             alert("Something went wrong. Please try again.");
@@ -73,7 +79,7 @@ export function AccessGate() {
                 </div>
 
                 <div className="space-y-2">
-                    <h1 className="text-3xl font-serif tracking-tight">The Archive: {slug}</h1>
+                    <h1 className="text-3xl font-serif tracking-tight">{initialOrgName || "The Archive"}</h1>
                     <p className="text-muted-foreground">
                         Exklusiver Zugang zum Inventar.
                     </p>

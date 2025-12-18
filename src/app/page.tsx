@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function LandingPage() {
   return (
-    <FadeIn className="min-h-screen flex flex-col justify-between p-6 bg-[#fafaf9] text-center">
+    <FadeIn className="min-h-screen flex flex-col justify-between p-6 text-center">
 
       {/* Spacer for centering */}
       <div className="flex-1" />
@@ -26,8 +26,8 @@ export default function LandingPage() {
         </div>
 
         <Link
-          href="/shop/holy-archive"
-          className="group flex items-center gap-2 border border-black px-8 py-4 rounded-full hover:bg-black hover:text-white transition-all duration-300"
+          href="/showroom"
+          className="group flex items-center gap-2 border border-black dark:border-white px-8 py-4 rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all duration-300"
         >
           <span className="font-medium tracking-wide">ENTER SHOWROOM</span>
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -38,7 +38,7 @@ export default function LandingPage() {
       <div className="flex-1 flex flex-col justify-end pb-8">
         <Link
           href="/dashboard"
-          className="inline-flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-black transition-colors opacity-60 hover:opacity-100"
+          className="inline-flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-black dark:hover:text-white transition-colors opacity-60 hover:opacity-100"
         >
           <ShieldCheck className="w-3 h-3" />
           <span>Team Access</span>
