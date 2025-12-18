@@ -33,6 +33,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
     const [selectionMode, setSelectionMode] = useState<'view' | 'sell'>('view');
 
     const [items, setItems] = useState<Item[]>(initialItems);
+    const [dashboardStats, setDashboardStats] = useState<any>(null);
     const [orgId, setOrgId] = useState<string | null>(initialOrgId);
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(initialItems.length === PAGE_SIZE);
@@ -55,7 +56,9 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                         .eq('user_id', currentUser.id)
                         .single();
 
-                    if (member) setOrgId(member.organization_id);
+                    if (member) {
+                        setOrgId(member.organization_id);
+                    }
                     if (view === 'login') setView('dashboard');
                 } else {
                     setOrgId(null);
@@ -67,11 +70,26 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
         }
     }, [view]);
 
+    const fetchStats = async () => {
+        if (!supabase || !orgId) return;
+        const { data, error } = await supabase.rpc('get_dashboard_stats', { p_org_id: orgId });
+        if (error) {
+            console.error('Error fetching dashboard stats:', error);
+        } else {
+            setDashboardStats(data);
+        }
+    };
+
     const loadData = async (pageToLoad: number = 0, reset: boolean = false) => {
         if (!supabase || !user || !orgId) return;
 
         setIsLoading(true);
         try {
+            // Fetch stats if it's a reset (initial or refresh)
+            if (reset) {
+                fetchStats();
+            }
+
             const from = pageToLoad * PAGE_SIZE;
             const to = from + PAGE_SIZE - 1;
 
@@ -180,6 +198,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                         createdAt: inserted.created_at
                     };
                     setItems(prev => [newItem, ...prev]);
+                    fetchStats();
                     showToast('Artikel erfolgreich erstellt', 'success');
                 }
             }
@@ -211,6 +230,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
             }
 
             setItems(prev => prev.map(item => item.id === id ? { ...item, ...data } : item));
+            fetchStats();
             showToast('Artikel aktualisiert', 'success');
             setView('item-detail');
         } catch (e: any) {
@@ -234,6 +254,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
             }
 
             setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'sold', ...saleData } : item));
+            fetchStats();
             showToast('Artikel als verkauft markiert', 'success');
             setView('inventory');
             setSelectionMode('view');
@@ -250,6 +271,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                 if (error) throw error;
             }
             setItems(prev => prev.filter(i => i.id !== id));
+            fetchStats();
             showToast('Artikel gelöscht', 'success');
             setView('inventory');
         } catch (e) {
@@ -323,6 +345,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                 userEmail={user?.email}
                 onLogout={handleLogout}
                 onRefresh={() => loadData(0, true)}
+                serverStats={dashboardStats}
             />
         );
 
