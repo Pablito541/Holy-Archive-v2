@@ -23,38 +23,77 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [activeChannel, setActiveChannel] = useState<string | null>(null);
     const [activeBrand, setActiveBrand] = useState<string | null>(null);
+    const [timeframe, setTimeframe] = useState<'month' | '3months' | 'all'>('all');
     const { theme, setTheme } = useTheme();
 
     const displayStats = useMemo(() => {
-        const soldItems = items.filter(i => i.status === 'sold');
+        // Filter items based on timeframe
+        const now = new Date();
+        const filterDate = timeframe === 'month'
+            ? new Date(now.getFullYear(), now.getMonth(), 1)
+            : timeframe === '3months'
+                ? new Date(now.setMonth(now.getMonth() - 3))
+                : new Date(0); // All time
+
+        const filteredItems = items.filter(item => {
+            if (!item.saleDate) return timeframe === 'all';
+            return new Date(item.saleDate) >= filterDate;
+        });
+
+        const soldItems = filteredItems.filter(i => i.status === 'sold');
         const inStockItems = items.filter(i => i.status === 'in_stock' || i.status === 'reserved');
 
-        // Local Fallbacks
+        // Local Fallbacks with filtered data
         const localProfit = soldItems.reduce((sum, item) => sum + (calculateProfit(item) || 0), 0);
         const localRevenue = soldItems.reduce((sum, item) => sum + (item.salePriceEur || 0), 0);
         const localValue = inStockItems.reduce((sum, item) => sum + item.purchasePriceEur, 0);
+        const averageMargin = localRevenue > 0 ? (localProfit / localRevenue) * 100 : 0;
 
-        // Calculate Best Margin & Highest Profit from server stats or local data
-        const brands = serverStats?.top_brands || [];
+        // Calculate Best Margin & Highest Profit from filtered sold items grouped by brand
+        const brandStats = soldItems.reduce((acc, item) => {
+            if (!acc[item.brand]) {
+                acc[item.brand] = { brand: item.brand, profit: 0, revenue: 0, count: 0 };
+            }
+            acc[item.brand].profit += calculateProfit(item) || 0;
+            acc[item.brand].revenue += item.salePriceEur || 0;
+            acc[item.brand].count += 1;
+            return acc;
+        }, {} as Record<string, any>);
+
+        const brands = Object.values(brandStats).sort((a: any, b: any) => b.profit - a.profit).slice(0, 10);
+
         const bestMarginBrand = brands.length > 0
             ? [...brands].sort((a, b) => ((b.profit / b.revenue) || 0) - ((a.profit / a.revenue) || 0))[0]
             : null;
-        const highestProfitBrand = brands.length > 0
-            ? [...brands].sort((a, b) => b.profit - a.profit)[0]
-            : null;
+        const highestProfitBrand = brands.length > 0 ? brands[0] : null;
+
+        // Calculate sales channels from filtered data
+        const channelStats = soldItems.reduce((acc, item) => {
+            const ch = item.saleChannel || 'unknown';
+            if (!acc[ch]) {
+                acc[ch] = { channel: ch, count: 0, profit: 0, revenue: 0 };
+            }
+            acc[ch].count += 1;
+            acc[ch].profit += calculateProfit(item) || 0;
+            acc[ch].revenue += item.salePriceEur || 0;
+            return acc;
+        }, {} as Record<string, any>);
+
+        const channels = Object.values(channelStats).sort((a: any, b: any) => b.profit - a.profit);
 
         return {
-            totalProfit: serverStats?.total_profit ?? localProfit,
-            totalRevenue: serverStats?.total_revenue ?? localRevenue,
-            inventoryValue: serverStats?.inventory_value ?? localValue,
-            stockCount: serverStats?.items_in_stock ?? inStockItems.length,
-            soldCount: serverStats?.items_sold ?? soldItems.length,
-            channels: serverStats?.sales_channels || [],
+            totalProfit: localProfit,
+            totalRevenue: localRevenue,
+            inventoryValue: localValue,
+            stockCount: inStockItems.length,
+            soldCount: soldItems.length,
+            averageMargin,
+            channels,
             topBrands: brands,
             bestMarginBrand,
             highestProfitBrand
         };
-    }, [items, serverStats]);
+    }, [items, timeframe]);
 
     // Enhanced Channel Modal
     const ChannelModal = ({ channel, onClose }: { channel: string, onClose: () => void }) => {
@@ -261,32 +300,64 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                         </div>
                     </div>
 
+                    {/* Timeframe Filter */}
+                    <div className="mb-6 flex flex-wrap gap-2 items-center">
+                        <span className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">Zeitraum:</span>
+                        <div className="flex bg-stone-100 dark:bg-zinc-800 p-1 rounded-xl gap-1">
+                            <button
+                                onClick={() => setTimeframe('month')}
+                                className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${timeframe === 'month' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
+                            >
+                                Dieser Monat
+                            </button>
+                            <button
+                                onClick={() => setTimeframe('3months')}
+                                className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${timeframe === '3months' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
+                            >
+                                Letzte 3 Monate
+                            </button>
+                            <button
+                                onClick={() => setTimeframe('all')}
+                                className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${timeframe === 'all' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
+                            >
+                                Gesamte Zeit
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Desktop Grid Layout */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         {/* Hero Card: Financial Overview */}
-                        <Card className="lg:col-span-2 p-8 bg-white dark:bg-zinc-900 shadow-lg shadow-stone-200/50 dark:shadow-zinc-950/50 relative overflow-hidden border border-stone-200 dark:border-zinc-800">
-                            <div className="flex justify-between items-start mb-8">
-                                <div>
+                        <Card className="lg:col-span-2 p-6 sm:p-8 bg-white dark:bg-zinc-900 shadow-lg shadow-stone-200/50 dark:shadow-zinc-950/50 relative overflow-hidden border border-stone-200 dark:border-zinc-800">
+                            <div className="flex flex-col sm:flex-row justify-between items-start mb-6 sm:mb-8 gap-4">
+                                <div className="flex-1">
                                     <p className="text-stone-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">Gesamtgewinn</p>
-                                    <h2 className="text-4xl font-serif font-bold text-stone-900 dark:text-zinc-50">
+                                    <h2 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 dark:text-zinc-50 mb-3">
                                         <AnimatedNumber value={displayStats.totalProfit} format={(val) => formatCurrency(val)} />
                                     </h2>
+                                    {/* Average Margin Badge */}
+                                    <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950/30 px-3 py-1.5 rounded-full">
+                                        <TrendingUp className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                                        <span className="text-xs font-bold text-green-700 dark:text-green-400">
+                                            Ø {displayStats.averageMargin.toFixed(1)}% Marge
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="bg-yellow-50 dark:bg-yellow-950/30 p-2 rounded-xl">
                                     <Sparkles className="w-5 h-5 text-yellow-500" />
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-8">
+                            <div className="grid grid-cols-2 gap-4 sm:gap-8">
                                 <div>
                                     <p className="text-stone-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Umsatz</p>
-                                    <span className="font-medium text-xl text-stone-900 dark:text-zinc-50">
+                                    <span className="font-medium text-lg sm:text-xl text-stone-900 dark:text-zinc-50">
                                         <AnimatedNumber value={displayStats.totalRevenue} format={(val) => formatCurrency(val)} />
                                     </span>
                                 </div>
                                 <div>
                                     <p className="text-stone-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Verkäufe</p>
-                                    <span className="font-medium text-xl text-stone-900 dark:text-zinc-50">
+                                    <span className="font-medium text-lg sm:text-xl text-stone-900 dark:text-zinc-50">
                                         {displayStats.soldCount}
                                     </span>
                                 </div>
@@ -328,33 +399,33 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
 
                     {/* Analysis Section */}
                     {displayStats.topBrands.length > 0 && (
-                        <div className="mb-8">
+                        <div className="mb-6 sm:mb-8">
                             <div className="flex items-center gap-2 mb-4">
                                 <TrendingUp className="w-5 h-5 text-stone-400" />
-                                <h3 className="font-bold text-stone-900 dark:text-zinc-50 text-xl">Analyse</h3>
+                                <h3 className="font-bold text-stone-900 dark:text-zinc-50 text-lg sm:text-xl">Analyse</h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 {/* Best Margin Brand */}
                                 {displayStats.bestMarginBrand && (
                                     <button
                                         onClick={() => setActiveBrand(displayStats.bestMarginBrand.brand)}
-                                        className="text-left group"
+                                        className="text-left group w-full"
                                     >
-                                        <Card className="p-6 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-zinc-900 border border-green-100 dark:border-green-900/30 hover:scale-[1.02] transition-transform duration-300">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div>
+                                        <Card className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-zinc-900 border border-green-100 dark:border-green-900/30 hover:scale-[1.02] active:scale-95 transition-transform duration-300">
+                                            <div className="flex justify-between items-start mb-3 sm:mb-4">
+                                                <div className="flex-1 min-w-0">
                                                     <p className="text-[10px] uppercase font-bold text-green-600/70 mb-1 tracking-widest">Beste Marge</p>
-                                                    <h4 className="text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50">{displayStats.bestMarginBrand.brand}</h4>
+                                                    <h4 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50 truncate">{displayStats.bestMarginBrand.brand}</h4>
                                                 </div>
-                                                <div className="bg-green-100 dark:bg-green-900/40 p-2 rounded-xl text-green-600">
-                                                    <TrendingUp className="w-5 h-5" />
+                                                <div className="bg-green-100 dark:bg-green-900/40 p-2 rounded-xl text-green-600 flex-shrink-0 ml-2">
+                                                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </div>
                                             </div>
                                             <div className="flex items-baseline gap-2">
-                                                <span className="text-3xl font-bold text-green-600 dark:text-green-400">
+                                                <span className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
                                                     {((displayStats.bestMarginBrand.profit / displayStats.bestMarginBrand.revenue) * 100).toFixed(1)}%
                                                 </span>
-                                                <span className="text-xs text-stone-400 dark:text-zinc-500 font-medium tracking-tight">durchschnittliche Marge</span>
+                                                <span className="text-xs text-stone-400 dark:text-zinc-500 font-medium tracking-tight">Marge</span>
                                             </div>
                                         </Card>
                                     </button>
@@ -364,23 +435,23 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                                 {displayStats.highestProfitBrand && (
                                     <button
                                         onClick={() => setActiveBrand(displayStats.highestProfitBrand.brand)}
-                                        className="text-left group"
+                                        className="text-left group w-full"
                                     >
-                                        <Card className="p-6 bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/20 dark:to-zinc-900 border border-yellow-100 dark:border-yellow-900/30 hover:scale-[1.02] transition-transform duration-300">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div>
+                                        <Card className="p-4 sm:p-6 bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/20 dark:to-zinc-900 border border-yellow-100 dark:border-yellow-900/30 hover:scale-[1.02] active:scale-95 transition-transform duration-300">
+                                            <div className="flex justify-between items-start mb-3 sm:mb-4">
+                                                <div className="flex-1 min-w-0">
                                                     <p className="text-[10px] uppercase font-bold text-yellow-600/70 mb-1 tracking-widest">Meister Gewinn</p>
-                                                    <h4 className="text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50">{displayStats.highestProfitBrand.brand}</h4>
+                                                    <h4 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50 truncate">{displayStats.highestProfitBrand.brand}</h4>
                                                 </div>
-                                                <div className="bg-yellow-100 dark:bg-yellow-900/40 p-2 rounded-xl text-yellow-600">
-                                                    <Sparkles className="w-5 h-5" />
+                                                <div className="bg-yellow-100 dark:bg-yellow-900/40 p-2 rounded-xl text-yellow-600 flex-shrink-0 ml-2">
+                                                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </div>
                                             </div>
                                             <div className="flex items-baseline gap-2">
-                                                <span className="text-3xl font-bold text-stone-900 dark:text-zinc-50">
+                                                <span className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-zinc-50 truncate">
                                                     {formatCurrency(displayStats.highestProfitBrand.profit)}
                                                 </span>
-                                                <span className="text-xs text-stone-400 dark:text-zinc-500 font-medium tracking-tight">Reingewinn erzielt</span>
+                                                <span className="text-xs text-stone-400 dark:text-zinc-500 font-medium tracking-tight whitespace-nowrap">Gewinn</span>
                                             </div>
                                         </Card>
                                     </button>

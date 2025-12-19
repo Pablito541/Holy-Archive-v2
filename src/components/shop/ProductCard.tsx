@@ -2,42 +2,102 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useParams } from "next/navigation";
+import { Heart } from "lucide-react";
 import { Item } from "@/types";
-import { WhatsAppButton } from "./WhatsAppButton";
+import { useLikes } from "@/hooks/useLikes";
+import { conditionLabels } from "@/lib/utils";
 
-export function ProductCard({ item }: { item: Item }) {
+interface ProductCardProps {
+    item: Item & { like_count?: number };
+}
+
+export function ProductCard({ item }: ProductCardProps) {
     const mainImage = item.imageUrls?.[0] || "/placeholder.png";
+    const { likeCount, isLiked, isLoading, isAuthenticated, toggleLike } = useLikes(
+        item.id,
+        item.like_count || 0
+    );
+
+    const handleLikeClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!isAuthenticated) {
+            // TODO: Show login modal or redirect
+            alert('Bitte melde dich an, um Artikel zu liken');
+            return;
+        }
+
+        toggleLike();
+    };
+
+    // Calculate original price (assuming 30% margin for demo)
+    const originalPrice = item.salePriceEur ? Math.round(item.salePriceEur * 1.3) : null;
 
     return (
         <Link href={`/showroom/${item.id}`} className="group block">
-            <div className="bg-white rounded-xl overflow-hidden border border-black/5 hover:shadow-lg transition-all duration-300">
-                <div className="relative aspect-[4/5] bg-[#f0f0f0] overflow-hidden">
-                    {/* Use a standard img for simplicity if remote patterns not configured, else Image with fill */}
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-stone-200 dark:border-zinc-800 hover:border-stone-300 dark:hover:border-zinc-700 transition-all duration-300 shadow-sm">
+                {/* Image Container */}
+                <div className="relative aspect-[3/4] bg-stone-100 dark:bg-zinc-800 overflow-hidden">
                     <Image
                         src={mainImage}
                         alt={item.model}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                     />
-                    <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0">
-                        <WhatsAppButton item={item} variant="icon" />
-                    </div>
-                    {item.status === 'reserved' && (
-                        <div className="absolute top-3 right-3 bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">
-                            RESERVIERT
+
+                    {/* Like Button Overlay */}
+                    <button
+                        onClick={handleLikeClick}
+                        disabled={isLoading}
+                        className="absolute bottom-3 right-3 bg-white/90 dark:bg-black/70 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-white dark:hover:bg-black/90 transition-colors active:scale-95 disabled:opacity-50 shadow-sm"
+                    >
+                        <Heart
+                            className={`w-4 h-4 transition-all ${isLiked
+                                    ? "fill-red-500 text-red-500"
+                                    : "text-stone-700 dark:text-zinc-300"
+                                }`}
+                        />
+                        <span className="text-stone-900 dark:text-white text-sm font-medium">
+                            {likeCount}
+                        </span>
+                    </button>
+
+                    {/* Status Badge */}
+                    {item.status === "reserved" && (
+                        <div className="absolute top-3 left-3 bg-white/90 dark:bg-black/80 backdrop-blur-md text-stone-900 dark:text-white text-xs font-bold px-3 py-1 rounded-full border border-stone-200 dark:border-zinc-700">
+                            Gefragt
                         </div>
                     )}
                 </div>
-                <div className="p-4">
-                    <div className="flex justify-between items-start gap-2">
-                        <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{item.brand}</p>
-                            <h3 className="font-serif text-lg leading-tight mt-1">{item.model}</h3>
-                        </div>
-                        <div className="text-right">
-                            <span className="font-medium">{item.salePriceEur?.toLocaleString('de-DE')} €</span>
+
+                {/* Info Section */}
+                <div className="p-3">
+                    {/* Brand and Condition */}
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-stone-900 dark:text-white font-medium text-sm truncate">
+                            {item.brand}
+                        </p>
+                        <span className="text-stone-500 dark:text-zinc-400 text-xs whitespace-nowrap">
+                            {conditionLabels[item.condition]}
+                        </span>
+                    </div>
+
+                    {/* Prices */}
+                    <div className="space-y-0.5">
+                        {originalPrice && (
+                            <p className="text-stone-400 dark:text-zinc-500 text-xs line-through">
+                                {originalPrice.toLocaleString("de-DE")} €
+                            </p>
+                        )}
+                        <div className="flex items-baseline gap-1.5">
+                            <span className="text-stone-900 dark:text-white font-bold text-base">
+                                {item.salePriceEur?.toLocaleString("de-DE")} €
+                            </span>
+                            <span className="text-teal-600 dark:text-teal-400 text-[10px] font-bold">
+                                inkl. ⓘ
+                            </span>
                         </div>
                     </div>
                 </div>

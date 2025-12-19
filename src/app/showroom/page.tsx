@@ -40,9 +40,9 @@ export default async function ShowroomPage() {
             notFound();
         }
 
-        // 2. Fetch Items from Showroom View
+        // 2. Fetch Items from Showroom View with Likes
         const { data: itemData, error: itemsError } = await supabase
-            .from("showroom_items")
+            .from("showroom_items_with_likes")
             .select("*")
             .eq("organization_id", org.id)
             .order("created_at", { ascending: false });
@@ -53,7 +53,7 @@ export default async function ShowroomPage() {
             // but for showroom it's critical.
         }
 
-        const mappedItems: Item[] = (itemData || []).map((d: any) => ({
+        const mappedItems: (Item & { like_count?: number })[] = (itemData || []).map((d: any) => ({
             id: d.id,
             organization_id: d.organization_id,
             brand: d.brand,
@@ -70,6 +70,7 @@ export default async function ShowroomPage() {
             reservedFor: d.reserved_for || null,
             reservedUntil: d.reserved_until || null,
             createdAt: d.created_at,
+            like_count: d.like_count || 0,
         }));
 
         return (
