@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { TrendingUp, Package, CreditCard, Sparkles, Store, Euro, ArrowRight, LogOut, User, Moon, Sun, Monitor } from 'lucide-react';
 import { SalesChart } from '../ui/SalesChart';
 import { Item } from '../../types';
-import { calculateProfit, formatCurrency } from '../../lib/utils';
+import { formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { Card } from '../ui/Card';
@@ -35,8 +35,15 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
         totalRevenue: 0,
         totalSales: 0,
         averageMargin: 0,
+        inventoryValue: 0, // Added
+        stockCount: 0, // Added
         totalBrands: 0,
         totalChannels: 0,
+        // Detailed structures
+        channels: [] as any[],
+        topBrands: [] as any[],
+        bestMarginBrand: null as any,
+        highestProfitBrand: null as any
     });
     const [isLoadingStats, setIsLoadingStats] = useState(true);
 
@@ -47,26 +54,42 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
 
             setIsLoadingStats(true);
             try {
+                // Call the new detailed RPC
                 const { data, error } = await supabase
-                    .rpc('get_dashboard_summary', {
+                    .rpc('get_detailed_dashboard_stats', {
                         org_id: currentOrgId,
                         filter_timeframe: timeframe
                     });
 
-                if (!error && data && data.length > 0) {
-                    const statsData = data[0];
+                if (error) throw error;
+
+                if (data) {
+                    // Start of Data Handling
+                    // Note: RPC returns JSON. Supabase might return it as data directly.
+                    // If it was RETURNS TABLE, it would be data[0]. 
+                    // Let's assume strict JSON object return.
+                    const s = data as any;
+
                     setStats({
-                        totalProfit: Number(statsData.totalProfit) || 0,
-                        totalRevenue: Number(statsData.totalRevenue) || 0,
-                        totalSales: Number(statsData.totalSales) || 0,
-                        averageMargin: Number(statsData.averageMargin) || 0,
-                        totalBrands: Number(statsData.totalBrands) || 0,
-                        totalChannels: Number(statsData.totalChannels) || 0,
+                        totalProfit: Number(s.totalProfit) || 0,
+                        totalRevenue: Number(s.totalRevenue) || 0,
+                        totalSales: Number(s.totalSales) || 0,
+                        averageMargin: Number(s.averageMargin) || 0,
+
+                        inventoryValue: Number(s.inventoryValue) || 0,
+                        stockCount: Number(s.stockCount) || 0,
+
+                        totalBrands: s.topBrands ? s.topBrands.length : 0,
+                        totalChannels: s.channels ? s.channels.length : 0,
+
+                        channels: s.channels || [],
+                        topBrands: s.topBrands || [],
+                        bestMarginBrand: s.bestMarginBrand || null,
+                        highestProfitBrand: s.highestProfitBrand || null
                     });
                 }
-            }
-            catch (err) {
-                console.error('Failed to fetch stats:', err);
+            } catch (err) {
+                console.error('Failed to fetch detailed stats:', err);
             } finally {
                 setIsLoadingStats(false);
             }
@@ -75,74 +98,28 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
         fetchStats();
     }, [timeframe, currentOrgId, supabase]);
 
+    // Derived display stats (Now just a passthrough from server stats)
+    // We keep this variable name to minimize refactoring impact on the render section
     const displayStats = useMemo(() => {
-        // Filter items based on timeframe
-        const now = new Date();
-        const filterDate = timeframe === 'month'
-            ? new Date(now.getFullYear(), now.getMonth(), 1)
-            : timeframe === '3months'
-                ? new Date(now.setMonth(now.getMonth() - 3))
-                : new Date(0); // All time
-
-        const filteredItems = items.filter(item => {
-            if (!item.saleDate) return timeframe === 'all';
-            return new Date(item.saleDate) >= filterDate;
-        });
-
-        const soldItems = filteredItems.filter(i => i.status === 'sold');
-        const inStockItems = items.filter(i => i.status === 'in_stock' || i.status === 'reserved');
-
-        // Local Fallbacks with filtered data
-        const localProfit = soldItems.reduce((sum, item) => sum + (calculateProfit(item) || 0), 0);
-        const localRevenue = soldItems.reduce((sum, item) => sum + (item.salePriceEur || 0), 0);
-        const localValue = inStockItems.reduce((sum, item) => sum + item.purchasePriceEur, 0);
-        const averageMargin = localRevenue > 0 ? (localProfit / localRevenue) * 100 : 0;
-
-        // Calculate Best Margin & Highest Profit from filtered sold items grouped by brand
-        const brandStats = soldItems.reduce((acc, item) => {
-            if (!acc[item.brand]) {
-                acc[item.brand] = { brand: item.brand, profit: 0, revenue: 0, count: 0 };
-            }
-            acc[item.brand].profit += calculateProfit(item) || 0;
-            acc[item.brand].revenue += item.salePriceEur || 0;
-            acc[item.brand].count += 1;
-            return acc;
-        }, {} as Record<string, any>);
-
-        const brands = Object.values(brandStats).sort((a: any, b: any) => b.profit - a.profit).slice(0, 10);
-
-        const bestMarginBrand = brands.length > 0
-            ? [...brands].sort((a, b) => ((b.profit / b.revenue) || 0) - ((a.profit / a.revenue) || 0))[0]
-            : null;
-        const highestProfitBrand = brands.length > 0 ? brands[0] : null;
-
-        // Calculate sales channels from filtered data
-        const channelStats = soldItems.reduce((acc, item) => {
-            const ch = item.saleChannel || 'unknown';
-            if (!acc[ch]) {
-                acc[ch] = { channel: ch, count: 0, profit: 0, revenue: 0 };
-            }
-            acc[ch].count += 1;
-            acc[ch].profit += calculateProfit(item) || 0;
-            acc[ch].revenue += item.salePriceEur || 0;
-            return acc;
-        }, {} as Record<string, any>);
-
-        const channels = Object.values(channelStats).sort((a: any, b: any) => b.profit - a.profit);
-
         return {
-            totalProfit: localProfit,
-            totalRevenue: localRevenue,
-            inventoryValue: localValue,
-            stockCount: inStockItems.length,
-            soldCount: soldItems.length,
-            averageMargin,
-            channels,
-            topBrands: brands,
-            bestMarginBrand,
-            highestProfitBrand
+            totalProfit: stats.totalProfit,
+            totalRevenue: stats.totalRevenue,
+            totalSales: stats.totalSales,
+            averageMargin: stats.averageMargin,
+
+            // Inventory (Use server values)
+            inventoryValue: stats.inventoryValue,
+            stockCount: stats.stockCount,
+
+            // Collections
+            channels: stats.channels,
+            topBrands: stats.topBrands,
+            bestMarginBrand: stats.bestMarginBrand,
+            highestProfitBrand: stats.highestProfitBrand,
+
+            soldCount: stats.totalSales
         };
-    }, [items, timeframe]);
+    }, [stats]);
 
     // Enhanced Channel Modal
     const ChannelModal = ({ channel, onClose }: { channel: string, onClose: () => void }) => {
@@ -193,7 +170,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-stone-900 dark:text-zinc-50">{formatCurrency(item.salePriceEur || 0)}</p>
-                                        <p className="text-xs text-green-600 font-bold">+{formatCurrency(calculateProfit(item) || 0)}</p>
+                                        <p className="text-xs text-green-600 font-bold">+{formatCurrency((item.salePriceEur || 0) - (item.purchasePriceEur || 0) - (item.platformFeesEur || 0) - (item.shippingCostEur || 0))}</p>
                                     </div>
                                 </div>
                             ))
