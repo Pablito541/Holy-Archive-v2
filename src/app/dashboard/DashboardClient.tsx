@@ -37,6 +37,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
     const [orgId, setOrgId] = useState<string | null>(initialOrgId);
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(initialItems.length === PAGE_SIZE);
+    const [totalCount, setTotalCount] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(false);
 
     const { showToast } = useToast();
@@ -83,13 +84,9 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
     }, []); // Run only once
 
     const fetchStats = async () => {
+        // Redundant if DashboardView fetches its own stats, but useful for other views if needed
+        // For now preventing errors
         if (!supabase || !orgId) return;
-        const { data, error } = await supabase.rpc('get_dashboard_stats', { p_org_id: orgId });
-        if (error) {
-            console.error('Error fetching dashboard stats:', error);
-        } else {
-            setDashboardStats(data);
-        }
     };
 
     const loadData = async (pageToLoad: number = 0, reset: boolean = false) => {
@@ -105,9 +102,10 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
             const from = pageToLoad * PAGE_SIZE;
             const to = from + PAGE_SIZE - 1;
 
-            const { data, error } = await supabase
+            // Include count in the query
+            const { data, error, count } = await supabase
                 .from('items')
-                .select('*')
+                .select('*', { count: 'exact' })
                 .eq('organization_id', orgId)
                 .order('created_at', { ascending: false })
                 .range(from, to);
@@ -135,13 +133,28 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                     createdAt: d.created_at
                 }));
 
-                if (reset) {
-                    setItems(mappedItems);
-                } else {
-                    setItems(prev => [...prev, ...mappedItems]);
+                // Update total count if available
+                if (count !== null) {
+                    setTotalCount(count);
                 }
 
-                setHasMore(mappedItems.length === PAGE_SIZE);
+                if (reset) {
+                    setItems(mappedItems);
+                    // If we reset, hasMore is true if we have fewer items than total
+                    setHasMore(mappedItems.length < (count || 0));
+                } else {
+                    setItems(prev => {
+                        const newItems = [...prev, ...mappedItems];
+                        // Correctly set hasMore based on total count
+                        setHasMore(newItems.length < (count || totalCount));
+                        return newItems;
+                    });
+                }
+
+                // Fallback for hasMore if count logic fails (e.g. RLS preventing count)
+                if (count === null) {
+                    setHasMore(data.length === PAGE_SIZE);
+                }
             }
         } catch (e) {
             console.error('Error loading data:', e);
@@ -363,6 +376,8 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                 onLogout={handleLogout}
                 onRefresh={() => loadData(0, true)}
                 serverStats={dashboardStats}
+                currentUser={user}
+                currentOrgId={orgId}
             />
         );
 

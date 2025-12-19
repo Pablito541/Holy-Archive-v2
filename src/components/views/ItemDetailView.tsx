@@ -29,7 +29,7 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
     };
 
     return (
-        <FadeIn className="bg-white min-h-screen pb-safe relative">
+        <FadeIn className="bg-white dark:bg-zinc-950 min-h-screen pb-safe relative">
             {isImageOpen && (
                 <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setIsImageOpen(false)}>
                     <button className="absolute top-6 right-6 text-white p-2 bg-white/20 rounded-full">
@@ -44,8 +44,8 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
             {isReserving && (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center p-6">
                     <div className="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" onClick={() => setIsReserving(false)}></div>
-                    <div className="bg-white rounded-[2rem] p-6 w-full max-w-sm relative z-10 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
-                        <h3 className="font-serif font-bold text-2xl mb-2">Artikel reservieren</h3>
+                    <div className="bg-white dark:bg-zinc-900 rounded-[2rem] p-6 w-full max-w-sm relative z-10 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+                        <h3 className="font-serif font-bold text-2xl mb-2 text-stone-900 dark:text-white">Artikel reservieren</h3>
                         <Input
                             label="Reserviert für (Name)"
                             placeholder="z.B. Max Mustermann"
@@ -67,11 +67,11 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                 </div>
             )}
 
-            <div className="relative h-[40vh] bg-stone-100 group cursor-zoom-in" onClick={() => setIsImageOpen(true)}>
+            <div className="relative h-[40vh] bg-stone-100 dark:bg-zinc-900 group cursor-zoom-in" onClick={() => setIsImageOpen(true)}>
                 {item.imageUrls && item.imageUrls.length > 0 ? (
                     <img src={item.imageUrls[0]} className="w-full h-full object-cover" />
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-stone-300">
+                    <div className="flex flex-col items-center justify-center h-full text-stone-300 dark:text-zinc-700">
                         <ShoppingBag className="w-20 h-20 opacity-30 mb-4" />
                         <span className="font-serif text-lg">Kein Bild vorhanden</span>
                     </div>
@@ -94,15 +94,15 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                 </div>
             </div>
 
-            <div className="px-8 py-10 -mt-10 bg-white rounded-t-[2.5rem] relative z-0 space-y-8 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+            <div className="px-8 py-10 -mt-10 bg-white dark:bg-zinc-950 rounded-t-[2.5rem] relative z-0 space-y-8 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] dark:shadow-none">
 
                 <div className="text-center">
-                    <h2 className="text-4xl font-serif font-bold text-stone-900 mb-2">{item.brand}</h2>
-                    <p className="text-lg text-stone-500 font-light">{item.model || item.category}</p>
+                    <h2 className="text-4xl font-serif font-bold text-stone-900 dark:text-white mb-2">{item.brand}</h2>
+                    <p className="text-lg text-stone-500 dark:text-zinc-400 font-light">{item.model || item.category}</p>
                 </div>
 
                 {item.status === 'sold' && (
-                    <div className="p-6 bg-stone-900 text-stone-50 rounded-3xl relative overflow-hidden">
+                    <div className="p-6 bg-stone-900 dark:bg-zinc-800 text-stone-50 dark:text-white rounded-3xl relative overflow-hidden">
                         <div className="relative z-10">
                             <div className="flex justify-between items-center mb-4 opacity-80 text-sm">
                                 <span>Verkauf am {formatDate(item.saleDate || '')}</span>
@@ -139,28 +139,28 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-5 bg-[#fafaf9] rounded-2xl border border-stone-100">
-                        <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Einkaufspreis</p>
-                        <p className="font-mono text-lg font-semibold text-stone-900">{formatCurrency(item.purchasePriceEur)}</p>
+                    <div className="p-5 bg-stone-50 dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800">
+                        <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Einkaufspreis</p>
+                        <p className="font-mono text-lg font-semibold text-stone-900 dark:text-white">{formatCurrency(item.purchasePriceEur)}</p>
                     </div>
-                    <div className="p-5 bg-[#fafaf9] rounded-2xl border border-stone-100">
-                        <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Quelle</p>
-                        <p className="font-medium text-stone-900 truncate">{item.purchaseSource}</p>
+                    <div className="p-5 bg-stone-50 dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800">
+                        <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Quelle</p>
+                        <p className="font-medium text-stone-900 dark:text-white truncate">{item.purchaseSource}</p>
                     </div>
-                    <div className="p-5 bg-[#fafaf9] rounded-2xl border border-stone-100">
-                        <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Zustand</p>
-                        <p className="font-medium capitalize text-stone-900">{conditionLabels[item.condition as Condition] || item.condition}</p>
+                    <div className="p-5 bg-stone-50 dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800">
+                        <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Zustand</p>
+                        <p className="font-medium capitalize text-stone-900 dark:text-white">{conditionLabels[item.condition as Condition] || item.condition}</p>
                     </div>
-                    <div className="p-5 bg-[#fafaf9] rounded-2xl border border-stone-100">
-                        <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Kaufdatum</p>
-                        <p className="font-medium text-stone-900">{formatDate(item.purchaseDate)}</p>
+                    <div className="p-5 bg-stone-50 dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800">
+                        <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Kaufdatum</p>
+                        <p className="font-medium text-stone-900 dark:text-white">{formatDate(item.purchaseDate)}</p>
                     </div>
                 </div>
 
                 {item.notes && (
                     <div>
-                        <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3 ml-1">Notizen</h3>
-                        <p className="text-stone-600 text-sm leading-relaxed bg-[#fafaf9] p-5 rounded-2xl border border-stone-100">
+                        <h3 className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-3 ml-1">Notizen</h3>
+                        <p className="text-stone-600 dark:text-zinc-400 text-sm leading-relaxed bg-stone-50 dark:bg-zinc-900 p-5 rounded-2xl border border-stone-200 dark:border-zinc-800">
                             {item.notes}
                         </p>
                     </div>

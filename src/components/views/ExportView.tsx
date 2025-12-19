@@ -27,19 +27,19 @@ export const ExportView = ({ items }: { items: Item[] }) => {
     return (
         <FadeIn className="p-6">
             <header className="mb-10 pt-2">
-                <h1 className="text-3xl font-serif font-bold text-stone-900">Export</h1>
+                <h1 className="text-3xl font-serif font-bold text-stone-900 dark:text-zinc-50">Export</h1>
             </header>
 
-            <div className="bg-stone-900 rounded-[2rem] p-8 shadow-xl shadow-stone-900/10 text-center relative overflow-hidden">
+            <div className="bg-stone-900 dark:bg-zinc-900 rounded-[2rem] p-8 shadow-xl shadow-stone-900/10 dark:shadow-zinc-950/50 text-center relative overflow-hidden border border-transparent dark:border-zinc-800">
                 <div className="relative z-10">
                     <div className="w-16 h-16 bg-white/10 text-white rounded-2xl flex items-center justify-center mx-auto mb-6 backdrop-blur-sm">
                         <Download className="w-7 h-7" />
                     </div>
                     <h3 className="font-serif font-bold text-2xl text-white mb-3">CSV Export</h3>
-                    <p className="text-sm text-stone-300 mb-8 font-light leading-relaxed">
+                    <p className="text-sm text-stone-300 dark:text-zinc-400 mb-8 font-light leading-relaxed">
                         Erstelle einen vollständigen Auszug deiner Datenbank für die Buchhaltung oder den Steuerberater.
                     </p>
-                    <Button onClick={downloadCSV} variant="secondary" className="w-full border-none">
+                    <Button onClick={downloadCSV} variant="secondary" className="w-full border-none dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700">
                         Datei herunterladen
                     </Button>
                 </div>

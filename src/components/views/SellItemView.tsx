@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import { Item } from '../../types';
+import { SALES_CHANNELS } from '../../constants';
 import { formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 import { Input } from '../ui/Input';
@@ -11,7 +12,7 @@ export const SellItemView = ({ item, onConfirm, onCancel }: { item: Item, onConf
     const [formData, setFormData] = useState({
         salePriceEur: 0,
         saleDate: new Date().toISOString().split('T')[0],
-        saleChannel: 'whatsapp',
+        saleChannel: 'Whatnot',
         platformFeesEur: 0,
         shippingCostEur: 0
     });
@@ -58,15 +59,7 @@ export const SellItemView = ({ item, onConfirm, onCancel }: { item: Item, onConf
 
                     <Select
                         label="Verkaufskanal"
-                        options={[
-                            { value: 'whatsapp', label: 'WhatsApp Gruppe' },
-                            { value: 'vinted', label: 'Vinted' },
-                            { value: 'instagram', label: 'Instagram' },
-                            { value: 'vestiaire', label: 'Vestaire Collective' },
-                            { value: 'whatnot', label: 'Whatnot (Live)' },
-                            { value: 'ebay', label: 'eBay' },
-                            { value: 'other', label: 'Andere' }
-                        ]}
+                        options={SALES_CHANNELS.map(channel => ({ value: channel, label: channel }))}
                         value={formData.saleChannel}
                         onChange={(e: any) => setFormData(p => ({ ...p, saleChannel: e.target.value }))}
                     />

@@ -7,24 +7,73 @@ import { FadeIn } from '../ui/FadeIn';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { Card } from '../ui/Card';
 import { useTheme } from '../providers/ThemeProvider';
+import { supabase } from '../../lib/supabase';
 
 import { PullToRefresh } from '../ui/PullToRefresh';
 
-export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, onLogout, onRefresh, serverStats }: {
+export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, onLogout, onRefresh, serverStats, currentUser, currentOrgId }: {
     items: Item[],
     onViewInventory: () => void,
     onAddItem: () => void,
     userEmail?: string,
     onLogout: () => void,
     onRefresh: () => Promise<void>,
-    serverStats?: any
+    serverStats?: any,
+    currentUser?: any,
+    currentOrgId?: string | null
 }) => {
     const [chartMonths, setChartMonths] = useState<3 | 12>(3);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [activeChannel, setActiveChannel] = useState<string | null>(null);
     const [activeBrand, setActiveBrand] = useState<string | null>(null);
-    const [timeframe, setTimeframe] = useState<'month' | '3months' | 'all'>('all');
+    const [timeframe, setTimeframe] = useState<'month' | '3months' | 'all'>('month');
     const { theme, setTheme } = useTheme();
+
+    // Server-side stats state
+    const [stats, setStats] = useState({
+        totalProfit: 0,
+        totalRevenue: 0,
+        totalSales: 0,
+        averageMargin: 0,
+        totalBrands: 0,
+        totalChannels: 0,
+    });
+    const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+    // Fetch dashboard stats from DB
+    React.useEffect(() => {
+        const fetchStats = async () => {
+            if (!currentOrgId || !supabase) return;
+
+            setIsLoadingStats(true);
+            try {
+                const { data, error } = await supabase
+                    .rpc('get_dashboard_summary', {
+                        org_id: currentOrgId,
+                        filter_timeframe: timeframe
+                    });
+
+                if (!error && data && data.length > 0) {
+                    const statsData = data[0];
+                    setStats({
+                        totalProfit: Number(statsData.totalProfit) || 0,
+                        totalRevenue: Number(statsData.totalRevenue) || 0,
+                        totalSales: Number(statsData.totalSales) || 0,
+                        averageMargin: Number(statsData.averageMargin) || 0,
+                        totalBrands: Number(statsData.totalBrands) || 0,
+                        totalChannels: Number(statsData.totalChannels) || 0,
+                    });
+                }
+            }
+            catch (err) {
+                console.error('Failed to fetch stats:', err);
+            } finally {
+                setIsLoadingStats(false);
+            }
+        };
+
+        fetchStats();
+    }, [timeframe, currentOrgId, supabase]);
 
     const displayStats = useMemo(() => {
         // Filter items based on timeframe
@@ -328,38 +377,61 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                     {/* Desktop Grid Layout */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         {/* Hero Card: Financial Overview */}
-                        <Card className="lg:col-span-2 p-6 sm:p-8 bg-white dark:bg-zinc-900 shadow-lg shadow-stone-200/50 dark:shadow-zinc-950/50 relative overflow-hidden border border-stone-200 dark:border-zinc-800">
-                            <div className="flex flex-col sm:flex-row justify-between items-start mb-6 sm:mb-8 gap-4">
-                                <div className="flex-1">
-                                    <p className="text-stone-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">Gesamtgewinn</p>
-                                    <h2 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 dark:text-zinc-50 mb-3">
-                                        <AnimatedNumber value={displayStats.totalProfit} format={(val) => formatCurrency(val)} />
-                                    </h2>
-                                    {/* Average Margin Badge */}
-                                    <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950/30 px-3 py-1.5 rounded-full">
-                                        <TrendingUp className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
-                                        <span className="text-xs font-bold text-green-700 dark:text-green-400">
-                                            Ø {displayStats.averageMargin.toFixed(1)}% Marge
+                        <Card className="lg:col-span-2 p-6 sm:p-8 bg-gradient-to-br from-stone-900 to-stone-800 text-white rounded-[2rem] shadow-2xl shadow-stone-900/20 relative overflow-hidden border-0 dark:from-zinc-900 dark:to-black">
+                            {/* Background Decoration */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none"></div>
+
+                            <div className="relative z-10">
+                                {/* Header with Average Margin */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                                    <div>
+                                        <p className="text-stone-400 font-medium text-sm uppercase tracking-wider mb-1">Reingewinn ({timeframe === 'all' ? 'Gesamt' : timeframe === 'month' ? 'Dieser Monat' : 'Letzte 3 Monate'})</p>
+                                        <div className="flex items-baseline gap-2">
+                                            <h2 className="text-4xl sm:text-5xl font-serif font-bold tracking-tight">
+                                                {isLoadingStats ? (
+                                                    <span className="animate-pulse">...</span>
+                                                ) : (
+                                                    <AnimatedNumber value={stats.totalProfit} format={formatCurrency} />
+                                                )}
+                                            </h2>
+                                        </div>
+                                    </div>
+
+                                    <div className="inline-flex items-center self-start sm:self-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 hover:bg-white/15 transition-colors">
+                                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                        <span className="text-sm font-bold text-emerald-50">
+                                            Ø {isLoadingStats ? '...' : stats.averageMargin.toFixed(1)}% Marge
                                         </span>
                                     </div>
                                 </div>
-                                <div className="bg-yellow-50 dark:bg-yellow-950/30 p-2 rounded-xl">
-                                    <Sparkles className="w-5 h-5 text-yellow-500" />
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4 sm:gap-8">
-                                <div>
-                                    <p className="text-stone-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Umsatz</p>
-                                    <span className="font-medium text-lg sm:text-xl text-stone-900 dark:text-zinc-50">
-                                        <AnimatedNumber value={displayStats.totalRevenue} format={(val) => formatCurrency(val)} />
-                                    </span>
-                                </div>
-                                <div>
-                                    <p className="text-stone-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Verkäufe</p>
-                                    <span className="font-medium text-lg sm:text-xl text-stone-900 dark:text-zinc-50">
-                                        {displayStats.soldCount}
-                                    </span>
+                                {/* Stats Grid */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 pt-6 border-t border-white/10">
+                                    <div>
+                                        <p className="text-stone-400 text-xs uppercase tracking-widest mb-2">Umsatz</p>
+                                        <p className="text-xl sm:text-2xl font-bold text-white/90">
+                                            {isLoadingStats ? '...' : <AnimatedNumber value={stats.totalRevenue} format={formatCurrency} />}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-stone-400 text-xs uppercase tracking-widest mb-2">Verkäufe</p>
+                                        <p className="text-xl sm:text-2xl font-bold text-white/90">
+                                            {isLoadingStats ? '...' : stats.totalSales} <span className="text-xs sm:text-sm font-normal text-stone-500">Stk.</span>
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-stone-400 text-xs uppercase tracking-widest mb-2">Marken</p>
+                                        <p className="text-xl sm:text-2xl font-bold text-white/90">
+                                            {isLoadingStats ? '...' : stats.totalBrands}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-stone-400 text-xs uppercase tracking-widest mb-2">Kanäle</p>
+                                        <p className="text-xl sm:text-2xl font-bold text-white/90">
+                                            {isLoadingStats ? '...' : stats.totalChannels}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </Card>
@@ -411,13 +483,13 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                                         onClick={() => setActiveBrand(displayStats.bestMarginBrand.brand)}
                                         className="text-left group w-full"
                                     >
-                                        <Card className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-zinc-900 border border-green-100 dark:border-green-900/30 hover:scale-[1.02] active:scale-95 transition-transform duration-300">
+                                        <Card className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-white dark:from-green-950 dark:to-zinc-900 border border-green-100 dark:border-green-900/50 hover:scale-[1.02] active:scale-95 transition-transform duration-300 shadow-sm dark:shadow-green-900/10">
                                             <div className="flex justify-between items-start mb-3 sm:mb-4">
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-[10px] uppercase font-bold text-green-600/70 mb-1 tracking-widest">Beste Marge</p>
+                                                    <p className="text-[10px] uppercase font-bold text-green-600/70 dark:text-green-400/70 mb-1 tracking-widest">Beste Marge</p>
                                                     <h4 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50 truncate">{displayStats.bestMarginBrand.brand}</h4>
                                                 </div>
-                                                <div className="bg-green-100 dark:bg-green-900/40 p-2 rounded-xl text-green-600 flex-shrink-0 ml-2">
+                                                <div className="bg-green-100 dark:bg-green-900/20 p-2 rounded-xl text-green-600 dark:text-green-400 flex-shrink-0 ml-2">
                                                     <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </div>
                                             </div>
@@ -437,13 +509,13 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                                         onClick={() => setActiveBrand(displayStats.highestProfitBrand.brand)}
                                         className="text-left group w-full"
                                     >
-                                        <Card className="p-4 sm:p-6 bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/20 dark:to-zinc-900 border border-yellow-100 dark:border-yellow-900/30 hover:scale-[1.02] active:scale-95 transition-transform duration-300">
+                                        <Card className="p-4 sm:p-6 bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950 dark:to-zinc-900 border border-yellow-100 dark:border-yellow-900/50 hover:scale-[1.02] active:scale-95 transition-transform duration-300 shadow-sm dark:shadow-yellow-900/10">
                                             <div className="flex justify-between items-start mb-3 sm:mb-4">
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-[10px] uppercase font-bold text-yellow-600/70 mb-1 tracking-widest">Meister Gewinn</p>
+                                                    <p className="text-[10px] uppercase font-bold text-yellow-600/70 dark:text-yellow-400/70 mb-1 tracking-widest">Meister Gewinn</p>
                                                     <h4 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50 truncate">{displayStats.highestProfitBrand.brand}</h4>
                                                 </div>
-                                                <div className="bg-yellow-100 dark:bg-yellow-900/40 p-2 rounded-xl text-yellow-600 flex-shrink-0 ml-2">
+                                                <div className="bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-xl text-yellow-600 dark:text-yellow-400 flex-shrink-0 ml-2">
                                                     <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </div>
                                             </div>

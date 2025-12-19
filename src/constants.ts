@@ -10,6 +10,7 @@ export const BRANDS = [
     { value: 'Dior', label: 'Dior' },
     { value: 'Fendi', label: 'Fendi' },
     { value: 'Celine', label: 'Celine' },
+    { value: 'Bottega Veneta', label: 'Bottega Veneta' },
     { value: 'Other', label: 'Sonstige' }
 ];
 
@@ -30,3 +31,12 @@ export const CONDITIONS: { value: Condition, label: string }[] = [
 ];
 
 export const SHOWROOM_SLUG = "holy-archive";
+
+export const SALES_CHANNELS = [
+    'Instagram',
+    'Vinted',
+    'Whatnot',
+    'Showroom',
+    'Private',
+    'Sonstige'
+];

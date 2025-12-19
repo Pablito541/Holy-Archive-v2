@@ -6,7 +6,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { useImageUpload } from '../../hooks/useImageUpload';
-import { BRANDS, CATEGORIES, CONDITIONS } from '../../constants';
+import { BRANDS, CATEGORIES, CONDITIONS, SALES_CHANNELS } from '../../constants';
 
 export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: Partial<Item>) => void, onCancel: () => void, initialData?: Item }) => {
     const [formData, setFormData] = useState<Partial<Item>>(initialData || {
@@ -261,6 +261,44 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                         />
                     </div>
                 </div>
+
+                {/* SOLD SECTION (Only visible if item is sold) */}
+                {initialData?.status === 'sold' && (
+                    <div className="bg-stone-50 dark:bg-stone-900 p-6 rounded-[2rem] border border-stone-200 dark:border-stone-800 mb-6 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 bg-black dark:bg-white text-white dark:text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">
+                            Verkaufsdaten
+                        </div>
+
+                        <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 uppercase tracking-widest mb-6 flex items-center gap-2">
+                            Verkauf Details
+                        </h3>
+
+                        <Select
+                            label="Verkaufskanal"
+                            options={SALES_CHANNELS.map(c => ({ value: c, label: c }))}
+                            value={formData.saleChannel || 'Sonstige'}
+                            onChange={(e: any) => handleChange('saleChannel', e.target.value)}
+                        />
+
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                            <Input
+                                label="Verkaufspreis (€)"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={formData.salePriceEur || ''}
+                                onChange={(e: any) => handleChange('salePriceEur', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                            />
+                            <Input
+                                label="Verkaufsdatum"
+                                type="date"
+                                value={formData.saleDate ? new Date(formData.saleDate).toISOString().split('T')[0] : ''}
+                                onChange={(e: any) => handleChange('saleDate', e.target.value)}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 <Button type="submit" className="w-full shadow-2xl shadow-stone-900/20" disabled={isSubmitting || isImageUploading} loading={isSubmitting || isImageUploading}>
                     <Save className="w-4 h-4 mr-2" />
