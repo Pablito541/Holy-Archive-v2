@@ -16,29 +16,35 @@ export const LoginView = ({ onLogin }: { onLogin: (user: any) => void }) => {
         e.preventDefault();
         setLoading(true);
 
-        if (!supabase) {
-            // Fallback for demo/no-supabase mode
-            setTimeout(() => {
-                onLogin({ email: 'demo@example.com' });
-                setLoading(false);
-            }, 1000);
-            return;
-        }
-
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        });
-
-        if (error) {
-            showToast(error.message, 'error');
-            setLoading(false);
-        } else {
-            // Auth state change will be caught by page.tsx listener
-            // But we can also call onLogin as a direct callback
-            if (data.user) {
-                onLogin(data.user);
+        try {
+            if (!supabase) {
+                // Fallback for demo/no-supabase mode
+                setTimeout(() => {
+                    onLogin({ email: 'demo@example.com' });
+                    setLoading(false);
+                }, 1000);
+                return;
             }
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) {
+                showToast(error.message, 'error');
+                setLoading(false);
+            } else {
+                // Auth state change will be caught by page.tsx listener
+                // But we can also call onLogin as a direct callback
+                if (data.user) {
+                    onLogin(data.user);
+                }
+            }
+        } catch (err: any) {
+            console.error("LoginView: Unhandled login error:", err);
+            showToast("Ein unerwarteter Fehler ist aufgetreten.", "error");
+            setLoading(false);
         }
     };
 

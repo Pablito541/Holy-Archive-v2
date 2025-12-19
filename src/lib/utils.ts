@@ -17,6 +17,11 @@ export const calculateProfit = (item: Item): number | null => {
     return item.salePriceEur - item.purchasePriceEur - fees;
 };
 
+export const calculateMarginPercentage = (profit: number, revenue: number) => {
+    if (!revenue || revenue === 0) return 0;
+    return (profit / revenue) * 100;
+};
+
 export const conditionLabels: Record<Condition, string> = {
     mint: 'Neuwertig',
     very_good: 'Sehr gut',

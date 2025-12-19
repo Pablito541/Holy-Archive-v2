@@ -22,6 +22,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
     const [chartMonths, setChartMonths] = useState<3 | 12>(3);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [activeChannel, setActiveChannel] = useState<string | null>(null);
+    const [activeBrand, setActiveBrand] = useState<string | null>(null);
     const { theme, setTheme } = useTheme();
 
     const displayStats = useMemo(() => {
@@ -33,53 +34,158 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
         const localRevenue = soldItems.reduce((sum, item) => sum + (item.salePriceEur || 0), 0);
         const localValue = inStockItems.reduce((sum, item) => sum + item.purchasePriceEur, 0);
 
+        // Calculate Best Margin & Highest Profit from server stats or local data
+        const brands = serverStats?.top_brands || [];
+        const bestMarginBrand = brands.length > 0
+            ? [...brands].sort((a, b) => ((b.profit / b.revenue) || 0) - ((a.profit / a.revenue) || 0))[0]
+            : null;
+        const highestProfitBrand = brands.length > 0
+            ? [...brands].sort((a, b) => b.profit - a.profit)[0]
+            : null;
+
         return {
             totalProfit: serverStats?.total_profit ?? localProfit,
             totalRevenue: serverStats?.total_revenue ?? localRevenue,
             inventoryValue: serverStats?.inventory_value ?? localValue,
             stockCount: serverStats?.items_in_stock ?? inStockItems.length,
             soldCount: serverStats?.items_sold ?? soldItems.length,
-            channels: serverStats?.sales_channels?.map((c: any) => [c.channel, c.count, c.profit]) || [],
-            topBrands: serverStats?.top_brands || []
+            channels: serverStats?.sales_channels || [],
+            topBrands: brands,
+            bestMarginBrand,
+            highestProfitBrand
         };
     }, [items, serverStats]);
 
-    // Simple Modal for Channel Details
+    // Enhanced Channel Modal
     const ChannelModal = ({ channel, onClose }: { channel: string, onClose: () => void }) => {
         const channelItems = items.filter(i => i.saleChannel === channel && i.status === 'sold');
+        const channelStat = displayStats.channels.find((c: any) => c.channel === channel);
+        const margin = channelStat ? (channelStat.profit / channelStat.revenue) * 100 : 0;
+
         return (
-            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6">
-                <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={onClose}></div>
-                <div className="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-3xl shadow-2xl relative z-10 max-h-[80vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
-                    <div className="p-6 border-b border-stone-100 dark:border-zinc-800 flex justify-between items-center">
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+                <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={onClose}></div>
+                <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-[2.5rem] shadow-2xl relative z-10 max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500">
+                    <div className="p-8 border-b border-stone-100 dark:border-zinc-800 flex justify-between items-center bg-stone-50/50 dark:bg-zinc-800/20">
                         <div>
-                            <h3 className="text-xl font-serif font-bold text-stone-900 dark:text-zinc-50 capitalize">{channel} Insights</h3>
-                            <p className="text-sm text-stone-500 dark:text-zinc-400">{channelItems.length} Verkäufe im aktuellen Snapshot</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Store className="w-5 h-5 text-stone-400" />
+                                <h3 className="text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50 capitalize">{channel}</h3>
+                            </div>
+                            <div className="flex gap-4 mt-2">
+                                <div className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">
+                                    Marge: <span className="text-green-600 dark:text-green-400">{margin.toFixed(1)}%</span>
+                                </div>
+                                <div className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">
+                                    Umsatz: <span className="text-stone-900 dark:text-zinc-50">{formatCurrency(channelStat?.revenue || 0)}</span>
+                                </div>
+                            </div>
                         </div>
-                        <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors">
+                        <button onClick={onClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 hover:scale-105 transition-transform shadow-sm">
                             <ArrowRight className="w-5 h-5 rotate-90" />
                         </button>
                     </div>
-                    <div className="overflow-y-auto p-4 space-y-3">
+                    <div className="overflow-y-auto p-6 space-y-4">
+                        <p className="text-sm font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-2">Verkaufte Artikel ({channelItems.length})</p>
                         {channelItems.length === 0 ? (
-                            <div className="text-center py-10 text-stone-400 font-medium">Keine Details für diesen Kanal lokal geladen.</div>
+                            <div className="text-center py-16">
+                                <Package className="w-12 h-12 text-stone-200 dark:text-zinc-800 mx-auto mb-4" />
+                                <p className="text-stone-400 font-medium">Keine detaillierten Verkaufsdaten lokal vorhanden.</p>
+                            </div>
                         ) : (
                             channelItems.map(item => (
-                                <div key={item.id} className="flex items-center gap-4 p-3 rounded-2xl bg-stone-50 dark:bg-zinc-800/50 border border-stone-100 dark:border-zinc-800">
-                                    <div className="w-12 h-12 bg-stone-200 dark:bg-zinc-700 rounded-xl overflow-hidden flex-shrink-0">
-                                        {item.imageUrls?.[0] ? <img src={item.imageUrls[0]} className="w-full h-full object-cover" alt="" /> : <Package className="w-full h-full p-3 text-stone-400" />}
+                                <div key={item.id} className="flex items-center gap-4 p-4 rounded-3xl bg-stone-50/50 dark:bg-zinc-800/30 border border-stone-100 dark:border-zinc-800/50 hover:border-stone-200 dark:hover:border-zinc-700 transition-colors group">
+                                    <div className="w-16 h-16 bg-stone-200 dark:bg-zinc-700 rounded-2xl overflow-hidden flex-shrink-0 shadow-inner">
+                                        {item.imageUrls?.[0] ? <img src={item.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" /> : <Package className="w-full h-full p-4 text-stone-400" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-stone-900 dark:text-zinc-50 truncate">{item.brand} {item.model}</p>
-                                        <p className="text-xs text-stone-500 dark:text-zinc-400">{item.saleDate ? new Date(item.saleDate).toLocaleDateString() : 'Kein Datum'}</p>
+                                        <p className="font-bold text-lg text-stone-900 dark:text-zinc-50 truncate">{item.brand}</p>
+                                        <p className="text-sm text-stone-500 dark:text-zinc-400 truncate">{item.model}</p>
+                                        <p className="text-[10px] text-stone-400 mt-1 uppercase font-bold tracking-tighter">{item.saleDate ? new Date(item.saleDate).toLocaleDateString() : 'Verkauft'}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-stone-900 dark:text-zinc-50">{formatCurrency(item.salePriceEur || 0)}</p>
-                                        <p className="text-[10px] text-green-600 font-bold">+{formatCurrency(calculateProfit(item) || 0)}</p>
+                                        <p className="text-xs text-green-600 font-bold">+{formatCurrency(calculateProfit(item) || 0)}</p>
                                     </div>
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Generic Brand Modal
+    const BrandModal = ({ brand, onClose }: { brand: string, onClose: () => void }) => {
+        const brandItems = items.filter(i => i.brand === brand);
+        const soldItems = brandItems.filter(i => i.status === 'sold');
+        const stockItems = brandItems.filter(i => i.status === 'in_stock');
+        const brandStat = displayStats.topBrands.find((b: any) => b.brand === brand);
+        const margin = brandStat ? (brandStat.profit / brandStat.revenue) * 100 : 0;
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+                <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={onClose}></div>
+                <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-[2.5rem] shadow-2xl relative z-10 max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500">
+                    <div className="p-8 border-b border-stone-100 dark:border-zinc-800 flex justify-between items-center bg-stone-50/50 dark:bg-zinc-800/20">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Sparkles className="w-5 h-5 text-yellow-500" />
+                                <h3 className="text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50">{brand}</h3>
+                            </div>
+                            <div className="flex gap-4 mt-2">
+                                <div className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">
+                                    Marge: <span className="text-green-600 dark:text-green-400">{margin.toFixed(1)}%</span>
+                                </div>
+                                <div className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">
+                                    Lager: <span className="text-stone-900 dark:text-zinc-50">{stockItems.length} Stk.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 hover:scale-105 transition-transform shadow-sm">
+                            <ArrowRight className="w-5 h-5 rotate-90" />
+                        </button>
+                    </div>
+                    <div className="overflow-y-auto p-6 space-y-6">
+                        {/* Summary Stats */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 rounded-3xl bg-green-50/50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30">
+                                <p className="text-[10px] uppercase font-bold text-green-600/70 mb-1">Gewinn (Total)</p>
+                                <p className="text-lg font-bold text-green-700 dark:text-green-400">{formatCurrency(brandStat?.profit || 0)}</p>
+                            </div>
+                            <div className="p-4 rounded-3xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30">
+                                <p className="text-[10px] uppercase font-bold text-blue-600/70 mb-1">Umsatz</p>
+                                <p className="text-lg font-bold text-blue-700 dark:text-blue-400">{formatCurrency(brandStat?.revenue || 0)}</p>
+                            </div>
+                        </div>
+
+                        {/* Recent Items */}
+                        <div className="space-y-4">
+                            <p className="text-sm font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">Alle Artikel ({brandItems.length})</p>
+                            {brandItems.length === 0 ? (
+                                <p className="text-center py-10 text-stone-400">Keine Artikel geladen.</p>
+                            ) : (
+                                brandItems.map(item => (
+                                    <div key={item.id} className="flex items-center gap-4 p-4 rounded-3xl bg-stone-50/50 dark:bg-zinc-800/30 border border-stone-100 dark:border-zinc-800/50">
+                                        <div className="w-14 h-14 bg-stone-200 dark:bg-zinc-700 rounded-2xl overflow-hidden flex-shrink-0">
+                                            {item.imageUrls?.[0] ? <img src={item.imageUrls[0]} className="w-full h-full object-cover" alt="" /> : <Package className="w-full h-full p-4 text-stone-400" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-stone-900 dark:text-zinc-50 truncate">{item.model}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${item.status === 'sold' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-stone-100 text-stone-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                                                    {item.status === 'sold' ? 'Verkauft' : 'Lager'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-stone-900 dark:text-zinc-50">{formatCurrency(item.status === 'sold' ? item.salePriceEur || 0 : item.purchasePriceEur)}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -220,6 +326,69 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                         </div>
                     </div>
 
+                    {/* Analysis Section */}
+                    {displayStats.topBrands.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4">
+                                <TrendingUp className="w-5 h-5 text-stone-400" />
+                                <h3 className="font-bold text-stone-900 dark:text-zinc-50 text-xl">Analyse</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Best Margin Brand */}
+                                {displayStats.bestMarginBrand && (
+                                    <button
+                                        onClick={() => setActiveBrand(displayStats.bestMarginBrand.brand)}
+                                        className="text-left group"
+                                    >
+                                        <Card className="p-6 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-zinc-900 border border-green-100 dark:border-green-900/30 hover:scale-[1.02] transition-transform duration-300">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <p className="text-[10px] uppercase font-bold text-green-600/70 mb-1 tracking-widest">Beste Marge</p>
+                                                    <h4 className="text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50">{displayStats.bestMarginBrand.brand}</h4>
+                                                </div>
+                                                <div className="bg-green-100 dark:bg-green-900/40 p-2 rounded-xl text-green-600">
+                                                    <TrendingUp className="w-5 h-5" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-bold text-green-600 dark:text-green-400">
+                                                    {((displayStats.bestMarginBrand.profit / displayStats.bestMarginBrand.revenue) * 100).toFixed(1)}%
+                                                </span>
+                                                <span className="text-xs text-stone-400 dark:text-zinc-500 font-medium tracking-tight">durchschnittliche Marge</span>
+                                            </div>
+                                        </Card>
+                                    </button>
+                                )}
+
+                                {/* Highest Profit Brand */}
+                                {displayStats.highestProfitBrand && (
+                                    <button
+                                        onClick={() => setActiveBrand(displayStats.highestProfitBrand.brand)}
+                                        className="text-left group"
+                                    >
+                                        <Card className="p-6 bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/20 dark:to-zinc-900 border border-yellow-100 dark:border-yellow-900/30 hover:scale-[1.02] transition-transform duration-300">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <p className="text-[10px] uppercase font-bold text-yellow-600/70 mb-1 tracking-widest">Meister Gewinn</p>
+                                                    <h4 className="text-2xl font-serif font-bold text-stone-900 dark:text-zinc-50">{displayStats.highestProfitBrand.brand}</h4>
+                                                </div>
+                                                <div className="bg-yellow-100 dark:bg-yellow-900/40 p-2 rounded-xl text-yellow-600">
+                                                    <Sparkles className="w-5 h-5" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-bold text-stone-900 dark:text-zinc-50">
+                                                    {formatCurrency(displayStats.highestProfitBrand.profit)}
+                                                </span>
+                                                <span className="text-xs text-stone-400 dark:text-zinc-500 font-medium tracking-tight">Reingewinn erzielt</span>
+                                            </div>
+                                        </Card>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Charts in responsive grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Sales Chart */}
@@ -251,20 +420,20 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                                 <ArrowRight className="w-4 h-4 text-stone-400" />
                             </div>
                             <div className="space-y-4">
-                                {displayStats.channels.map(([channel, count]: any, i: number) => (
+                                {displayStats.channels.map((c: any, i: number) => (
                                     <button
-                                        key={channel}
-                                        onClick={() => setActiveChannel(channel)}
+                                        key={c.channel}
+                                        onClick={() => setActiveChannel(c.channel)}
                                         className="w-full text-left group relative"
                                     >
                                         <div className="flex justify-between text-sm mb-1.5 z-10 relative">
-                                            <span className="font-bold capitalize text-stone-700 dark:text-zinc-300 group-hover:text-stone-900 dark:group-hover:text-zinc-100 transition-colors">{channel}</span>
-                                            <span className="text-stone-400 dark:text-zinc-500 font-medium">{count} Verkäufe</span>
+                                            <span className="font-bold capitalize text-stone-700 dark:text-zinc-300 group-hover:text-stone-900 dark:group-hover:text-zinc-100 transition-colors">{c.channel}</span>
+                                            <span className="text-stone-400 dark:text-zinc-500 font-medium">{c.count} Verkäufe</span>
                                         </div>
                                         <div className="h-2 bg-stone-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                                             <div
                                                 className="h-full rounded-full transition-all duration-1000 ease-out bg-stone-800 dark:bg-zinc-400"
-                                                style={{ width: `${(count / displayStats.soldCount) * 100}%`, transitionDelay: `${i * 100}ms` }}
+                                                style={{ width: `${(c.count / displayStats.soldCount) * 100}%`, transitionDelay: `${i * 100}ms` }}
                                             />
                                         </div>
                                     </button>
@@ -274,18 +443,24 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                     </div>
 
                     {/* Top Brands Section */}
-                    {displayStats.top_brands && displayStats.top_brands.length > 0 && (
+                    {displayStats.topBrands && displayStats.topBrands.length > 0 && (
                         <div className="mt-8">
                             <h3 className="font-bold text-stone-900 dark:text-zinc-50 text-lg mb-4">Top Marken</h3>
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                                {displayStats.top_brands.map((b: any) => (
-                                    <Card key={b.brand} className="p-4 bg-white dark:bg-zinc-900 border border-stone-100 dark:border-zinc-800 shadow-sm">
-                                        <p className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1 truncate">{b.brand}</p>
-                                        <p className="text-xl font-bold text-stone-900 dark:text-zinc-50 mb-1">{b.count}</p>
-                                        <p className="text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full inline-block">
-                                            +{formatCurrency(b.profit)}
-                                        </p>
-                                    </Card>
+                                {displayStats.topBrands.map((b: any) => (
+                                    <button
+                                        key={b.brand}
+                                        onClick={() => setActiveBrand(b.brand)}
+                                        className="text-left transition-transform active:scale-95"
+                                    >
+                                        <Card className="p-4 bg-white dark:bg-zinc-900 border border-stone-100 dark:border-zinc-800 shadow-sm hover:border-stone-300 dark:hover:border-zinc-600 transition-colors h-full">
+                                            <p className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1 truncate">{b.brand}</p>
+                                            <p className="text-xl font-bold text-stone-900 dark:text-zinc-50 mb-1">{b.count}</p>
+                                            <p className="text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full inline-block">
+                                                +{formatCurrency(b.profit)}
+                                            </p>
+                                        </Card>
+                                    </button>
                                 ))}
                             </div>
                         </div>
@@ -297,6 +472,13 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                 <ChannelModal
                     channel={activeChannel}
                     onClose={() => setActiveChannel(null)}
+                />
+            )}
+
+            {activeBrand && (
+                <BrandModal
+                    brand={activeBrand}
+                    onClose={() => setActiveBrand(null)}
                 />
             )}
         </FadeIn >

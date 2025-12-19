@@ -43,32 +43,44 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
 
     // 1. Auth & Data Loading
     useEffect(() => {
-        if (supabase) {
-            // Listen for changes
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                const currentUser = session?.user ?? null;
-                setUser(currentUser);
+        if (!supabase) return;
 
-                if (currentUser) {
-                    const { data: member } = await supabase
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            const currentUser = session?.user ?? null;
+            console.log('DashboardClient: Auth state change:', _event, currentUser?.email);
+            setUser(currentUser);
+
+            if (currentUser) {
+                // Determine the view immediately
+                setView(prev => prev === 'login' ? 'dashboard' : prev);
+
+                // Fetch org membership in parallel
+                if (supabase) {
+                    supabase
                         .from('organization_members')
                         .select('organization_id')
                         .eq('user_id', currentUser.id)
-                        .single();
-
-                    if (member) {
-                        setOrgId(member.organization_id);
-                    }
-                    if (view === 'login') setView('dashboard');
-                } else {
-                    setOrgId(null);
-                    setView('login');
+                        .maybeSingle()
+                        .then(({ data: member, error }) => {
+                            if (error) {
+                                console.error("DashboardClient: Error fetching organization membership:", error);
+                            }
+                            if (member) {
+                                setOrgId(member.organization_id);
+                            } else {
+                                console.log("DashboardClient: No organization membership found for user.");
+                            }
+                        });
                 }
-            });
+            } else {
+                setOrgId(null);
+                setView('login');
+            }
+        });
 
-            return () => subscription.unsubscribe();
-        }
-    }, [view]);
+        return () => subscription.unsubscribe();
+    }, []); // Run only once
 
     const fetchStats = async () => {
         if (!supabase || !orgId) return;
@@ -138,12 +150,17 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
         }
     };
 
-    // Re-fetch only if orgId changes and we don't have items (or we want to refresh)
+    // Fetch stats and items on mount/login
     useEffect(() => {
-        if (user && orgId && items.length === 0) {
-            loadData(0, true);
+        if (user && orgId) {
+            fetchStats(); // Always fetch fresh global stats
+
+            // Only fetch items if we don't have them yet (initial load fallback)
+            if (items.length === 0) {
+                loadData(0, true);
+            }
         }
-    }, [user, orgId, items.length]);
+    }, [user, orgId]);
 
     const handleLoadMore = () => {
         const nextPage = page + 1;
