@@ -33,10 +33,9 @@ export const CONDITIONS: { value: Condition, label: string }[] = [
 export const SHOWROOM_SLUG = "holy-archive";
 
 export const SALES_CHANNELS = [
-    'Instagram',
-    'Vinted',
-    'Whatnot',
-    'Showroom',
-    'Private',
-    'Sonstige'
+    'whatnot',
+    'vinted',
+    'whatsapp',
+    'other'
 ];
+

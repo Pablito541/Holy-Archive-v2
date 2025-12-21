@@ -12,7 +12,7 @@ export const SellItemView = ({ item, onConfirm, onCancel }: { item: Item, onConf
     const [formData, setFormData] = useState({
         salePriceEur: 0,
         saleDate: new Date().toISOString().split('T')[0],
-        saleChannel: 'Whatnot',
+        saleChannel: 'whatnot',
         platformFeesEur: 0,
         shippingCostEur: 0
     });

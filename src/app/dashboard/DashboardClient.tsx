@@ -270,26 +270,33 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
 
     const handleSellItem = async (id: string, saleData: any) => {
         try {
-            if (supabase) {
-                const { error } = await supabase.from('items').update({
-                    status: 'sold',
-                    sale_price_eur: saleData.salePriceEur,
-                    sale_date: saleData.saleDate,
-                    sale_channel: saleData.saleChannel,
-                    platform_fees_eur: saleData.platformFeesEur,
-                    shipping_cost_eur: saleData.shippingCostEur
-                }).eq('id', id);
-
-                if (error) throw error;
+            if (!supabase) {
+                throw new Error('Supabase client not initialized');
             }
 
+            const { error } = await supabase.from('items').update({
+                status: 'sold',
+                sale_price_eur: saleData.salePriceEur,
+                sale_date: saleData.saleDate,
+                sale_channel: saleData.saleChannel,
+                platform_fees_eur: saleData.platformFeesEur,
+                shipping_cost_eur: saleData.shippingCostEur
+            }).eq('id', id);
+
+            if (error) {
+                console.error('Supabase update error:', error);
+                throw error;
+            }
+
+            // Only update local state and show success if DB update succeeded
             setItems(prev => prev.map(item => item.id === id ? { ...item, status: 'sold', ...saleData } : item));
             fetchStats();
             showToast('Artikel als verkauft markiert', 'success');
             setView('inventory');
             setSelectionMode('view');
-        } catch (e) {
-            showToast('Fehler beim Verkauf', 'error');
+        } catch (e: any) {
+            console.error('Error selling item:', e);
+            showToast(`Fehler beim Verkauf: ${e.message || 'Unbekannter Fehler'}`, 'error');
         }
     };
 
