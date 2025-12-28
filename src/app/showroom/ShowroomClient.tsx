@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Search, Filter, Heart, ShoppingBag } from "lucide-react";
-import { Item } from "@/types";
+import { useEffect, useState, useMemo } from "react";
+import { Search, Filter, Heart, ShoppingBag, ArrowUpDown } from "lucide-react";
+import { Item, Category } from "@/types";
 import { ProductCard } from "../../components/shop/ProductCard";
 import { FadeIn } from "../../components/ui/FadeIn";
 import { AccessGate } from "../../components/shop/AccessGate";
-import { SHOWROOM_SLUG } from "@/constants";
+import { SHOWROOM_SLUG, CATEGORIES } from "@/constants";
 import { createClient } from "@/lib/supabase";
 
 interface ShowroomClientProps {
@@ -21,6 +21,8 @@ export default function ShowroomClient({ initialItems, initialOrgName, initialOr
     const [searchQuery, setSearchQuery] = useState("");
     const [filterBrand, setFilterBrand] = useState<string>("");
     const [filterCondition, setFilterCondition] = useState<string>("");
+    const [filterCategory, setFilterCategory] = useState<Category | 'all'>('all');
+    const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'likes'>('likes');
     const [showLikedOnly, setShowLikedOnly] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
     const [isHeaderVisible, setIsHeaderVisible] = useState(true);
@@ -28,6 +30,57 @@ export default function ShowroomClient({ initialItems, initialOrgName, initialOr
 
     const supabase = createClient();
     const memberKey = `member_of_${SHOWROOM_SLUG}`;
+
+    // Get unique brands for filter (moved up before useEffect)
+    const uniqueBrands = Array.from(new Set(initialItems.map(item => item.brand))).sort();
+    const uniqueConditions = Array.from(new Set(initialItems.map(item => item.condition))).sort();
+
+    // Filter and sort items (useMemo MUST be before useEffect)
+    const filteredAndSortedItems = useMemo(() => {
+        let result = initialItems.filter(item => {
+            // Search filter
+            if (searchQuery) {
+                const search = searchQuery.toLowerCase();
+                const matchesSearch =
+                    item.brand.toLowerCase().includes(search) ||
+                    item.model.toLowerCase().includes(search) ||
+                    item.category.toLowerCase().includes(search);
+                if (!matchesSearch) return false;
+            }
+
+            // Category filter
+            if (filterCategory !== 'all' && item.category !== filterCategory) return false;
+
+            // Brand filter
+            if (filterBrand && item.brand !== filterBrand) return false;
+
+            // Condition filter
+            if (filterCondition && item.condition !== filterCondition) return false;
+
+            // TODO: Liked filter (requires fetching user's likes)
+            // if (showLikedOnly) { ... }
+
+            return true;
+        });
+
+        // Sort items
+        switch (sortBy) {
+            case 'newest':
+                return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            case 'oldest':
+                return result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            case 'price_asc':
+                return result.sort((a, b) => a.purchasePriceEur - b.purchasePriceEur);
+            case 'price_desc':
+                return result.sort((a, b) => b.purchasePriceEur - a.purchasePriceEur);
+            case 'likes':
+                return result.sort((a, b) => ((b as any).likeCount || 0) - ((a as any).likeCount || 0));
+            default:
+                return result;
+        }
+    }, [initialItems, searchQuery, filterCategory, filterBrand, filterCondition, sortBy]);
+
+    const activeFilterCount = [filterBrand, filterCondition, showLikedOnly].filter(Boolean).length;
 
     // Handle scroll to hide/show header
     useEffect(() => {
@@ -78,36 +131,6 @@ export default function ShowroomClient({ initialItems, initialOrgName, initialOr
         return <AccessGate onSuccess={() => setHasAccess(true)} slug={SHOWROOM_SLUG} initialOrgName={initialOrgName} initialOrgId={initialOrgId} />;
     }
 
-    // Get unique brands for filter
-    const uniqueBrands = Array.from(new Set(initialItems.map(item => item.brand))).sort();
-    const uniqueConditions = Array.from(new Set(initialItems.map(item => item.condition))).sort();
-
-    // Filter items based on search query and filters
-    const filteredItems = initialItems.filter(item => {
-        // Search filter
-        if (searchQuery) {
-            const search = searchQuery.toLowerCase();
-            const matchesSearch =
-                item.brand.toLowerCase().includes(search) ||
-                item.model.toLowerCase().includes(search) ||
-                item.category.toLowerCase().includes(search);
-            if (!matchesSearch) return false;
-        }
-
-        // Brand filter
-        if (filterBrand && item.brand !== filterBrand) return false;
-
-        // Condition filter
-        if (filterCondition && item.condition !== filterCondition) return false;
-
-        // TODO: Liked filter (requires fetching user's likes)
-        // if (showLikedOnly) { ... }
-
-        return true;
-    });
-
-    const activeFilterCount = [filterBrand, filterCondition, showLikedOnly].filter(Boolean).length;
-
     return (
         <div className="min-h-screen bg-stone-50 dark:bg-black">
             {/* Holy Archive Header - Sticky */}
@@ -146,6 +169,20 @@ export default function ShowroomClient({ initialItems, initialOrgName, initialOr
                                 className="w-full bg-stone-100 dark:bg-zinc-800 text-stone-900 dark:text-white placeholder-stone-500 dark:placeholder-zinc-500 border border-stone-200 dark:border-zinc-700 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-stone-400 dark:focus:border-zinc-600 transition-colors"
                             />
                         </div>
+
+                        {/* Sort Dropdown */}
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="px-3 py-2 bg-stone-100 dark:bg-zinc-800 text-stone-900 dark:text-white rounded-xl border border-stone-200 dark:border-zinc-700 text-sm focus:outline-none focus:border-stone-400 dark:focus:border-zinc-600 transition-colors"
+                        >
+                            <option value="newest">Neueste</option>
+                            <option value="likes">Beliebteste</option>
+                            <option value="price_desc">Preis ↓</option>
+                            <option value="price_asc">Preis ↑</option>
+                            <option value="oldest">Älteste</option>
+                        </select>
+
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className="relative px-4 py-2 bg-stone-100 dark:bg-zinc-800 text-stone-900 dark:text-white rounded-xl border border-stone-200 dark:border-zinc-700 hover:bg-stone-200 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2"
@@ -157,6 +194,31 @@ export default function ShowroomClient({ initialItems, initialOrgName, initialOr
                                 </span>
                             )}
                         </button>
+                    </div>
+
+                    {/* Category Filter Chips */}
+                    <div className="flex gap-2 overflow-x-auto hide-scrollbar mt-3">
+                        <button
+                            onClick={() => setFilterCategory('all')}
+                            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filterCategory === 'all'
+                                ? 'bg-stone-900 dark:bg-white text-white dark:text-black'
+                                : 'border border-stone-300 dark:border-zinc-700 text-stone-700 dark:text-zinc-300 hover:border-stone-400 dark:hover:border-zinc-600'
+                                }`}
+                        >
+                            Alle
+                        </button>
+                        {CATEGORIES.map(cat => (
+                            <button
+                                key={cat.value}
+                                onClick={() => setFilterCategory(cat.value)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filterCategory === cat.value
+                                    ? 'bg-stone-900 dark:bg-white text-white dark:text-black'
+                                    : 'border border-stone-300 dark:border-zinc-700 text-stone-700 dark:text-zinc-300 hover:border-stone-400 dark:hover:border-zinc-600'
+                                    }`}
+                            >
+                                {cat.label}
+                            </button>
+                        ))}
                     </div>
 
                     {/* Filter Panel */}
@@ -205,7 +267,7 @@ export default function ShowroomClient({ initialItems, initialOrgName, initialOr
 
             <main className="max-w-7xl mx-auto px-3 py-4">
                 <FadeIn>
-                    {filteredItems.length === 0 ? (
+                    {filteredAndSortedItems.length === 0 ? (
                         <div className="py-20 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800">
                             <p className="text-stone-500 dark:text-zinc-400 italic">
                                 {searchQuery || activeFilterCount > 0 ? "Keine Artikel gefunden." : "Aktuell keine Artikel in der Kollektion."}
@@ -213,7 +275,7 @@ export default function ShowroomClient({ initialItems, initialOrgName, initialOr
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                            {filteredItems.map((item) => (
+                            {filteredAndSortedItems.map((item) => (
                                 <ProductCard key={item.id} item={item} />
                             ))}
                         </div>

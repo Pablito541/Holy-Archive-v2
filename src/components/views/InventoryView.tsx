@@ -5,18 +5,19 @@ import { formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 import { PullToRefresh } from '../ui/PullToRefresh';
 
-export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh = async () => { } }: {
+export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh = async () => { }, filter, onFilterChange }: {
     items: Item[], onSelectItem: (id: string) => void;
     onLoadMore?: () => void;
     hasMore?: boolean;
     selectionMode?: 'sell' | 'view';
     onRefresh?: () => Promise<void>;
+    filter: ItemStatus;
+    onFilterChange: (filter: ItemStatus) => void;
 }) => {
-    const [filter, setFilter] = useState<ItemStatus>('in_stock');
     const [searchQuery, setSearchQuery] = useState('');
 
     const filteredItems = useMemo(() => {
-        return items.filter(i => {
+        let result = items.filter(i => {
             const statusMatches = i.status === filter;
             const query = searchQuery.toLowerCase();
             const searchMatches = !query ||
@@ -27,11 +28,22 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
 
             return statusMatches && searchMatches;
         });
+
+        // Sort sold items by saleDate descending
+        if (filter === 'sold') {
+            result.sort((a, b) => {
+                const dateA = a.saleDate ? new Date(a.saleDate).getTime() : 0;
+                const dateB = b.saleDate ? new Date(b.saleDate).getTime() : 0;
+                return dateB - dateA;
+            });
+        }
+
+        return result;
     }, [items, filter, searchQuery]);
 
     useEffect(() => {
         if (selectionMode === 'sell') {
-            setFilter('in_stock');
+            onFilterChange('in_stock');
         }
     }, [selectionMode]);
 
@@ -67,7 +79,7 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
                                 {(['in_stock', 'sold', 'reserved'] as const).map(status => (
                                     <button
                                         key={status}
-                                        onClick={() => setFilter(status)}
+                                        onClick={() => onFilterChange(status)}
                                         className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${filter === status
                                             ? 'bg-stone-900 dark:bg-zinc-800 text-white shadow-md'
                                             : 'text-stone-400 dark:text-zinc-500 hover:text-stone-600 dark:hover:text-zinc-300'

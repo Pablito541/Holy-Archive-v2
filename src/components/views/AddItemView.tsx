@@ -5,7 +5,7 @@ import { FadeIn } from '../ui/FadeIn';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { useImageUpload } from '../../hooks/useImageUpload';
+import { supabase } from '../../lib/supabase';
 import { BRANDS, CATEGORIES, CONDITIONS, SALES_CHANNELS } from '../../constants';
 
 export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: Partial<Item>) => void, onCancel: () => void, initialData?: Item }) => {
@@ -23,14 +23,12 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadingImages, setUploadingImages] = useState(false);
 
-    // Init hook with existing first image if available
-    const {
-        previewUrl,
-        handleImageSelect,
-        uploadImage,
-        isUploading: isImageUploading
-    } = useImageUpload(initialData?.imageUrls?.[0]);
+    // Multiple image URLs state (existing + new)
+    const [imageUrls, setImageUrls] = useState<string[]>(initialData?.imageUrls || []);
+    const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -67,24 +65,109 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        handleImageSelect(e);
-        // The hook (useImageUpload) manages the preview separately from formData,
-        // ensuring binary data isn't unnecessarily synchronized with item state.
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const totalImages = imageUrls.length + imagePreviews.length + files.length;
+        if (totalImages > 5) {
+            alert('Maximal 5 Bilder pro Artikel');
+            return;
+        }
+
+        const newFiles: File[] = [];
+        const newPreviews: string[] = [];
+
+        for (let i = 0; i < files.length && i < (5 - imageUrls.length - imagePreviews.length); i++) {
+            const file = files[i];
+            newFiles.push(file);
+
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                newPreviews.push(reader.result as string);
+                if (newPreviews.length === newFiles.length) {
+                    setImagePreviews(prev => [...prev, ...newPreviews]);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        setPendingFiles(prev => [...prev, ...newFiles]);
+        e.target.value = ''; // Reset input
+    };
+
+    const handleRemoveExistingImage = (index: number) => {
+        setImageUrls(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleRemovePendingImage = (index: number) => {
+        setImagePreviews(prev => prev.filter((_, i) => i !== index));
+        setPendingFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const uploadAllImages = async (): Promise<string[]> => {
+        if (pendingFiles.length === 0) return imageUrls;
+
+        if (!supabase) {
+            console.warn('Supabase not initialized');
+            return imageUrls;
+        }
+
+        setUploadingImages(true);
+        const uploadedUrls: string[] = [];
+
+        try {
+            for (const file of pendingFiles) {
+                // Compress image
+                const options = {
+                    maxSizeMB: 0.3,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true
+                };
+
+                let fileToUpload = file;
+                try {
+                    const imageCompression = (await import('browser-image-compression')).default;
+                    const compressedFile = await imageCompression(file, options);
+                    fileToUpload = compressedFile;
+                } catch (error) {
+                    console.error('Compression failed:', error);
+                }
+
+                const fileExt = fileToUpload.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('images')
+                    .upload(fileName, fileToUpload);
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('images')
+                    .getPublicUrl(fileName);
+
+                uploadedUrls.push(publicUrl);
+            }
+
+            return [...imageUrls, ...uploadedUrls];
+        } catch (error) {
+            console.error('Error uploading images:', error);
+            throw error;
+        } finally {
+            setUploadingImages(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (isSubmitting || isImageUploading) return;
+        if (isSubmitting || uploadingImages) return;
 
         setIsSubmitting(true);
         try {
-            // Upload image via hook
-            let uploadedUrl = await uploadImage();
-
-            // If upload returns a URL (new or existing), use it. 
-            // If null/undefined (failure or no file), we fall back to existing.
-            const finalImageUrls = uploadedUrl ? [uploadedUrl] : (formData.imageUrls || []);
+            // Upload all pending images
+            const finalImageUrls = await uploadAllImages();
 
             await onSave({ ...formData, imageUrls: finalImageUrls });
             if (!initialData) {
@@ -120,49 +203,89 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                     </div>
 
                     <div className="mb-8">
-                        {/* Image Upload Block */}
-                        <div className="block w-full aspect-[4/3] bg-stone-50 rounded-[2rem] border-2 border-dashed border-stone-200 overflow-hidden relative shadow-inner">
-                            {previewUrl || (formData.imageUrls && formData.imageUrls.length > 0) ? (
-                                <div className="relative w-full h-full group">
-                                    <img src={previewUrl || formData.imageUrls![0]} className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 backdrop-blur-sm">
-                                        <button
-                                            type="button"
-                                            onClick={() => cameraInputRef.current?.click()}
-                                            className="flex flex-col items-center justify-center text-white hover:scale-110 transition-transform"
-                                        >
-                                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-2">
-                                                <Camera className="w-6 h-6" />
-                                            </div>
-                                            <span className="text-xs font-medium">Kamera</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => galleryInputRef.current?.click()}
-                                            className="flex flex-col items-center justify-center text-white hover:scale-110 transition-transform"
-                                        >
-                                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-2">
-                                                <ImageIcon className="w-6 h-6" />
-                                            </div>
-                                            <span className="text-xs font-medium">Galerie</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-stone-400 gap-6">
-                                    <div className="text-center">
-                                        <span className="font-medium text-sm block mb-4">Cover-Foto (Öffentlich)</span>
-                                        <div className="flex gap-6">
-                                            <button type="button" onClick={() => cameraInputRef.current?.click()}>
-                                                <Camera className="w-8 h-8 text-stone-300 hover:text-stone-500 transition-colors" />
-                                            </button>
-                                            <button type="button" onClick={() => galleryInputRef.current?.click()}>
-                                                <ImageIcon className="w-8 h-8 text-stone-300 hover:text-stone-500 transition-colors" />
-                                            </button>
-                                        </div>
-                                    </div>
+                        {/* Multi-Image Upload Grid */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm text-stone-600 dark:text-stone-300">
+                                    Fotos ({imageUrls.length + imagePreviews.length}/5)
+                                </span>
+                                {uploadingImages && (
+                                    <span className="text-xs text-teal-600">Uploading...</span>
+                                )}
+                            </div>
+
+                            {/* Quick Action Buttons */}
+                            {(imageUrls.length + imagePreviews.length) < 5 && (
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => cameraInputRef.current?.click()}
+                                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-900 dark:bg-white text-white dark:text-black rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
+                                    >
+                                        <Camera className="w-4 h-4" />
+                                        Kamera
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => galleryInputRef.current?.click()}
+                                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white border border-stone-200 dark:border-stone-700 rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
+                                    >
+                                        <ImageIcon className="w-4 h-4" />
+                                        Galerie
+                                    </button>
                                 </div>
                             )}
+
+                            {/* Images Grid */}
+                            <div className="grid grid-cols-3 gap-3">
+                                {/* Existing uploaded images */}
+                                {imageUrls.map((url, idx) => (
+                                    <div key={`existing-${idx}`} className="relative aspect-square bg-stone-100 dark:bg-stone-800 rounded-2xl overflow-hidden group">
+                                        <img src={url} className="w-full h-full object-cover" alt={`Image ${idx + 1}`} />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveExistingImage(idx)}
+                                            className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+
+                                {/* Pending preview images */}
+                                {imagePreviews.map((preview, idx) => (
+                                    <div key={`preview-${idx}`} className="relative aspect-square bg-stone-100 dark:bg-stone-800 rounded-2xl overflow-hidden group border-2 border-dashed border-teal-400">
+                                        <img src={preview} className="w-full h-full object-cover" alt={`Preview ${idx + 1}`} />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemovePendingImage(idx)}
+                                            className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                        <div className="absolute bottom-2 left-2 text-[10px] bg-teal-500 text-white px-2 py-0.5 rounded-full font-bold">
+                                            NEU
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Add more button */}
+                                {(imageUrls.length + imagePreviews.length) < 5 && (
+                                    <label className="aspect-square bg-stone-50 dark:bg-stone-900 rounded-2xl border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-600 cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors">
+                                        <ImageIcon className="w-6 h-6 text-stone-400" />
+                                        <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium">Hinzufügen</span>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            className="hidden"
+                                            onChange={handleFileChange}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+
+                            {/* Hidden inputs for camera/gallery (kept for compatibility) */}
                             <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileChange} />
                             <input type="file" accept="image/*" className="hidden" ref={galleryInputRef} onChange={handleFileChange} />
                         </div>
@@ -300,7 +423,7 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                     </div>
                 )}
 
-                <Button type="submit" className="w-full shadow-2xl shadow-stone-900/20" disabled={isSubmitting || isImageUploading} loading={isSubmitting || isImageUploading}>
+                <Button type="submit" className="w-full shadow-2xl shadow-stone-900/20" disabled={isSubmitting || uploadingImages} loading={isSubmitting || uploadingImages}>
                     <Save className="w-4 h-4 mr-2" />
                     {initialData ? 'Änderungen speichern' : 'Artikel anlegen'}
                 </Button>

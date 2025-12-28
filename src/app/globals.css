@@ -248,6 +248,19 @@ body {
   background: #9ca3af;
 }
 
+/* Hide scrollbar for horizontal scroll elements */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
 /* Smooth Transitions */
 * {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);

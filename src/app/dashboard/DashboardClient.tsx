@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Item } from '../../types';
+import { Item, ItemStatus } from '../../types';
 import { generateId } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 
@@ -31,6 +31,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [selectionMode, setSelectionMode] = useState<'view' | 'sell'>('view');
+    const [inventoryFilter, setInventoryFilter] = useState<ItemStatus>('in_stock');
 
     const [items, setItems] = useState<Item[]>(initialItems);
     const [dashboardStats, setDashboardStats] = useState<any>(null);
@@ -396,6 +397,8 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                 onLoadMore={handleLoadMore}
                 hasMore={hasMore}
                 onRefresh={() => loadData(0, true)}
+                filter={inventoryFilter}
+                onFilterChange={setInventoryFilter}
             />
         );
 
