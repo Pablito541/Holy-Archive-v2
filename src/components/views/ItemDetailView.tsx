@@ -17,6 +17,7 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
     onEdit?: () => void
 }) => {
     const profit = calculateProfit(item);
+    const roi = item.purchasePriceEur ? ((profit || 0) / item.purchasePriceEur) * 100 : 0;
     const [isImageOpen, setIsImageOpen] = useState(false);
     const [isReserving, setIsReserving] = useState(false);
 
@@ -110,7 +111,10 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                             </div>
                             <div className="flex justify-between items-end border-t border-white/20 pt-4">
                                 <span className="text-xs font-bold uppercase tracking-widest text-stone-400">Reingewinn</span>
-                                <span className="text-3xl font-serif">{formatCurrency(profit || 0)}</span>
+                                <div className="text-right">
+                                    <span className="block text-3xl font-serif">{formatCurrency(profit || 0)}</span>
+                                    <span className="text-sm font-bold text-emerald-400">{roi.toFixed(0)}% ROI</span>
+                                </div>
                             </div>
                         </div>
                     </div>
