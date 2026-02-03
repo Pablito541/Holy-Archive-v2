@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Download, Calendar, Filter, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Download, Filter, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { Item } from '../../types';
-import { calculateProfit } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 import { Button } from '../ui/Button';
 import * as XLSX from 'xlsx';
@@ -34,6 +33,42 @@ export const ExportView = ({ items }: { items: Item[] }) => {
         { value: 4, label: 'Q4 (Okt-Dez)' }
     ];
 
+    // Helper function to check if a date is in the selected period (used for counting and export)
+    const checkInPeriod = (dateStr: string | undefined): boolean => {
+        if (!dateStr) return false;
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const quarter = Math.ceil(month / 3);
+
+        const yearMatch = selectedYear === 'all' || year === selectedYear;
+        const monthMatch = selectedMonth === 'all' || month === selectedMonth;
+        const quarterMatch = selectedQuarter === 'all' || quarter === selectedQuarter;
+
+        return yearMatch && monthMatch && quarterMatch;
+    };
+
+    // Count transactions for display
+    const transactionCount = useMemo(() => {
+        let count = 0;
+        items.forEach(item => {
+            // Count purchase if in period
+            if (checkInPeriod(item.purchaseDate)) {
+                count++;
+            }
+            // Count sale if sold and in period
+            if (item.status === 'sold' && checkInPeriod(item.saleDate)) {
+                count++;
+                // Count fees as separate transaction if they exist
+                const totalFees = (item.platformFeesEur || 0) + (item.shippingCostEur || 0);
+                if (totalFees > 0) {
+                    count++;
+                }
+            }
+        });
+        return count;
+    }, [items, selectedYear, selectedMonth, selectedQuarter]);
+
     const filteredItems = useMemo(() => {
         return items.filter(item => {
             const dateStr = item.saleDate || item.purchaseDate;
@@ -53,40 +88,120 @@ export const ExportView = ({ items }: { items: Item[] }) => {
     }, [items, selectedYear, selectedMonth, selectedQuarter]);
 
     const downloadExcel = () => {
-        const headers = [
-            'ID', 'Marke', 'Kategorie', 'Modell', 'Status',
-            'EK (EUR)', 'EK Datum', 'Quelle',
-            'VK (EUR)', 'VK Datum', 'VK Kanal',
-            'Gebüren', 'Versand', 'Gewinn', 'Notizen'
-        ];
+        // Create Transaction Ledger with unified Betrag column (+/- signs)
+        const transactions: {
+            Datum: string;
+            Typ: string;
+            Beschreibung: string;
+            Betrag: number | '';
+            ID: string;
+            Notizen: string;
+        }[] = [];
 
-        const data = filteredItems.map(item => ({
-            'ID': item.id,
-            'Marke': item.brand,
-            'Kategorie': item.category,
-            'Modell': item.model || '',
-            'Status': item.status === 'sold' ? 'Verkauft' : 'Im Lager',
-            'EK (EUR)': item.purchasePriceEur,
-            'EK Datum': item.purchaseDate,
-            'Quelle': item.purchaseSource,
-            'VK (EUR)': item.salePriceEur || '',
-            'VK Datum': item.saleDate || '',
-            'VK Kanal': item.saleChannel || '',
-            'Gebüren': item.platformFeesEur || 0,
-            'Versand': item.shippingCostEur || 0,
-            'Gewinn': calculateProfit(item) || 0,
-            'Notizen': item.notes
-        }));
+        // Iterate through all items to create transaction entries
+        items.forEach(item => {
+            // Expense Entry: Purchase in selected period (negative amount)
+            if (checkInPeriod(item.purchaseDate)) {
+                transactions.push({
+                    'Datum': item.purchaseDate || '',
+                    'Typ': 'AUSGABE',
+                    'Beschreibung': `Einkauf: ${item.brand} ${item.model || ''}`.trim(),
+                    'Betrag': -1 * (item.purchasePriceEur || 0),
+                    'ID': item.id,
+                    'Notizen': item.notes || ''
+                });
+            }
 
-        const worksheet = XLSX.utils.json_to_sheet(data);
+            // Income Entry: Sale in selected period (positive amount)
+            if (item.status === 'sold' && checkInPeriod(item.saleDate)) {
+                transactions.push({
+                    'Datum': item.saleDate || '',
+                    'Typ': 'EINNAHME',
+                    'Beschreibung': `Verkauf: ${item.brand} ${item.model || ''}`.trim(),
+                    'Betrag': item.salePriceEur || 0,
+                    'ID': item.id,
+                    'Notizen': item.saleChannel || ''
+                });
+
+                // Also add fees as expenses if they exist (negative amount)
+                const totalFees = (item.platformFeesEur || 0) + (item.shippingCostEur || 0);
+                if (totalFees > 0) {
+                    transactions.push({
+                        'Datum': item.saleDate || '',
+                        'Typ': 'AUSGABE',
+                        'Beschreibung': `Gebühren/Versand: ${item.brand} ${item.model || ''}`.trim(),
+                        'Betrag': -1 * totalFees,
+                        'ID': item.id,
+                        'Notizen': `Plattform: ${item.platformFeesEur || 0}€, Versand: ${item.shippingCostEur || 0}€`
+                    });
+                }
+            }
+        });
+
+        // Sort transactions by date
+        transactions.sort((a, b) => {
+            const dateA = a.Datum ? new Date(a.Datum).getTime() : 0;
+            const dateB = b.Datum ? new Date(b.Datum).getTime() : 0;
+            return dateA - dateB;
+        });
+
+        // Calculate summary (positive = income, negative = expense)
+        const totalIncome = transactions
+            .filter(t => typeof t.Betrag === 'number' && t.Betrag > 0)
+            .reduce((sum, t) => sum + (t.Betrag as number), 0);
+        const totalExpenses = transactions
+            .filter(t => typeof t.Betrag === 'number' && t.Betrag < 0)
+            .reduce((sum, t) => sum + Math.abs(t.Betrag as number), 0);
+        const profit = totalIncome - totalExpenses;
+
+        // Add empty rows before summary
+        transactions.push({ Datum: '', Typ: '', Beschreibung: '', Betrag: '', ID: '', Notizen: '' });
+        transactions.push({ Datum: '', Typ: '', Beschreibung: '', Betrag: '', ID: '', Notizen: '' });
+
+        // Add summary rows
+        transactions.push({
+            'Datum': '',
+            'Typ': 'ZUSAMMENFASSUNG',
+            'Beschreibung': 'Gesamteinnahmen',
+            'Betrag': totalIncome,
+            'ID': '',
+            'Notizen': ''
+        });
+        transactions.push({
+            'Datum': '',
+            'Typ': '',
+            'Beschreibung': 'Gesamtausgaben',
+            'Betrag': -1 * totalExpenses,
+            'ID': '',
+            'Notizen': ''
+        });
+        transactions.push({
+            'Datum': '',
+            'Typ': '',
+            'Beschreibung': 'GEWINN/VERLUST',
+            'Betrag': profit,
+            'ID': '',
+            'Notizen': ''
+        });
+
+        // Create worksheet
+        const worksheet = XLSX.utils.json_to_sheet(transactions);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Transaktionen");
 
-        // Auto-size columns (basic implementation)
-        const max_width = data.reduce((w, r) => Math.max(w, ...Object.values(r).map(v => v ? v.toString().length : 0)), 10);
-        worksheet["!cols"] = Array(headers.length).fill({ wch: Math.min(max_width, 30) });
+        // Auto-size columns
+        const colWidths = [
+            { wch: 12 },  // Datum
+            { wch: 12 },  // Typ
+            { wch: 40 },  // Beschreibung
+            { wch: 14 },  // Betrag
+            { wch: 36 },  // ID
+            { wch: 30 },  // Notizen
+        ];
+        worksheet["!cols"] = colWidths;
 
-        const fileName = `Export_${selectedYear}_${selectedMonth !== 'all' ? `M${selectedMonth}` : selectedQuarter !== 'all' ? `Q${selectedQuarter}` : 'Full'}.xlsx`;
+        const periodLabel = selectedMonth !== 'all' ? `M${selectedMonth}` : selectedQuarter !== 'all' ? `Q${selectedQuarter}` : 'Gesamt';
+        const fileName = `Transaktionen_${selectedYear}_${periodLabel}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
 
@@ -170,11 +285,11 @@ export const ExportView = ({ items }: { items: Item[] }) => {
                         </div>
                         <h3 className="font-serif font-bold text-2xl text-white mb-2">Excel Datei erstellen</h3>
                         <p className="text-sm text-stone-400 mb-8 font-light max-w-sm mx-auto">
-                            {filteredItems.length} Transaktionen für den gewählten Zeitraum gefunden.
+                            {transactionCount} Buchungen (Einnahmen & Ausgaben) für den gewählten Zeitraum gefunden.
                         </p>
                         <Button
                             onClick={downloadExcel}
-                            disabled={filteredItems.length === 0}
+                            disabled={transactionCount === 0}
                             variant="secondary"
                             className="w-full h-14 rounded-2xl border-none font-bold bg-white text-stone-900 hover:bg-stone-100 disabled:opacity-50 disabled:bg-stone-700"
                         >

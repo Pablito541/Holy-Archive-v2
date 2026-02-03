@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Item, ItemStatus } from '../../types';
 import { generateId } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
@@ -32,6 +32,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [selectionMode, setSelectionMode] = useState<'view' | 'sell'>('view');
     const [inventoryFilter, setInventoryFilter] = useState<ItemStatus>('in_stock');
+    const [inventorySearchQuery, setInventorySearchQuery] = useState('');
 
     const [items, setItems] = useState<Item[]>(initialItems);
     const [dashboardStats, setDashboardStats] = useState<any>(null);
@@ -40,6 +41,9 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
     const [hasMore, setHasMore] = useState(initialItems.length === PAGE_SIZE);
     const [totalCount, setTotalCount] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Scroll position preservation for inventory navigation
+    const scrollPositionRef = useRef<number>(0);
 
     const { showToast } = useToast();
 
@@ -175,6 +179,16 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
             }
         }
     }, [user, orgId]);
+
+    // Restore scroll position when returning to inventory view
+    useEffect(() => {
+        if (view === 'inventory' && scrollPositionRef.current > 0) {
+            // Small timeout to ensure the DOM has rendered
+            setTimeout(() => {
+                window.scrollTo(0, scrollPositionRef.current);
+            }, 10);
+        }
+    }, [view]);
 
     const handleLoadMore = () => {
         const nextPage = page + 1;
@@ -392,13 +406,20 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
         if (view === 'inventory') return (
             <InventoryView
                 items={items}
-                onSelectItem={(id) => { setSelectedItemId(id); setView('item-detail'); }}
+                onSelectItem={(id) => {
+                    scrollPositionRef.current = window.scrollY;
+                    setSelectedItemId(id);
+                    setView('item-detail');
+                    window.scrollTo(0, 0); // Scroll to top for item detail view
+                }}
                 selectionMode={selectionMode}
                 onLoadMore={handleLoadMore}
                 hasMore={hasMore}
                 onRefresh={() => loadData(0, true)}
                 filter={inventoryFilter}
                 onFilterChange={setInventoryFilter}
+                searchQuery={inventorySearchQuery}
+                onSearchChange={setInventorySearchQuery}
             />
         );
 

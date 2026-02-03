@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 export const metadata = {
@@ -14,7 +14,7 @@ export default function LandingPage() {
       {/* Spacer for centering */}
       <div className="flex-1" />
 
-      {/* Main Content: Showroom Access */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-8">
         <div className="space-y-4">
           <h1 className="text-5xl md:text-7xl font-serif tracking-tighter">
@@ -26,24 +26,16 @@ export default function LandingPage() {
         </div>
 
         <Link
-          href="/showroom"
+          href="/dashboard"
           className="group flex items-center gap-2 border border-black dark:border-white px-8 py-4 rounded-full hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all duration-300"
         >
-          <span className="font-medium tracking-wide">ENTER SHOWROOM</span>
+          <span className="font-medium tracking-wide">ENTER</span>
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </Link>
       </div>
 
-      {/* Footer: Team Access */}
-      <div className="flex-1 flex flex-col justify-end pb-8">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-black dark:hover:text-white transition-colors opacity-60 hover:opacity-100"
-        >
-          <ShieldCheck className="w-3 h-3" />
-          <span>Team Access</span>
-        </Link>
-      </div>
+      {/* Footer spacer */}
+      <div className="flex-1" />
 
     </FadeIn>
   );

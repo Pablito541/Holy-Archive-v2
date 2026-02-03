@@ -25,6 +25,10 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadingImages, setUploadingImages] = useState(false);
 
+    // Bulk upload mode
+    const [isBulkMode, setIsBulkMode] = useState(false);
+    const [bulkQuantity, setBulkQuantity] = useState(1);
+
     // Multiple image URLs state (existing + new)
     const [imageUrls, setImageUrls] = useState<string[]>(initialData?.imageUrls || []);
     const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -69,16 +73,17 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
+        const maxImages = isBulkMode ? bulkQuantity : 5;
         const totalImages = imageUrls.length + imagePreviews.length + files.length;
-        if (totalImages > 5) {
-            alert('Maximal 5 Bilder pro Artikel');
+        if (totalImages > maxImages) {
+            alert(`Maximal ${maxImages} Bilder erlaubt`);
             return;
         }
 
         const newFiles: File[] = [];
         const newPreviews: string[] = [];
 
-        for (let i = 0; i < files.length && i < (5 - imageUrls.length - imagePreviews.length); i++) {
+        for (let i = 0; i < files.length && i < (maxImages - imageUrls.length - imagePreviews.length); i++) {
             const file = files[i];
             newFiles.push(file);
 
@@ -169,9 +174,46 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
             // Upload all pending images
             const finalImageUrls = await uploadAllImages();
 
-            await onSave({ ...formData, imageUrls: finalImageUrls });
-            if (!initialData) {
+            // Check if bulk mode is active
+            if (isBulkMode && bulkQuantity > 1 && !initialData) {
+                // Strict validation: image count must match bulk quantity
+                if (finalImageUrls.length !== bulkQuantity) {
+                    alert(`Fehler: Für ${bulkQuantity} Artikel müssen genau ${bulkQuantity} Fotos hochgeladen werden.`);
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                // Calculate price per item
+                const pricePerItem = (formData.purchasePriceEur || 0) / bulkQuantity;
+
+                // Create items array
+                const itemsToCreate: Partial<Item>[] = [];
+
+                for (let i = 0; i < bulkQuantity; i++) {
+                    // Strict mapping: 1 image per item
+                    const itemData: Partial<Item> = {
+                        ...formData,
+                        purchasePriceEur: pricePerItem,
+                        salePriceEur: 0, // No target price in bulk mode
+                        imageUrls: [finalImageUrls[i]],
+                        notes: formData.notes || ''
+                    };
+
+                    itemsToCreate.push(itemData);
+                }
+
+                // Save all items (sequentially to avoid race conditions)
+                for (const item of itemsToCreate) {
+                    await onSave(item);
+                }
+
                 localStorage.removeItem('add_item_draft');
+            } else {
+                // Normal single item save
+                await onSave({ ...formData, imageUrls: finalImageUrls });
+                if (!initialData) {
+                    localStorage.removeItem('add_item_draft');
+                }
             }
         } catch (error) {
             console.error('Error saving item:', error);
@@ -196,115 +238,145 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
 
             <form onSubmit={handleSubmit} className="px-6 pb-12 max-w-lg mx-auto">
 
-                {/* PUBLIC SECTION */}
-                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 mb-8 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">
-                        Public Showroom
-                    </div>
-
-                    <div className="mb-8">
-                        {/* Multi-Image Upload Grid */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="font-medium text-sm text-stone-600 dark:text-stone-300">
-                                    Fotos ({imageUrls.length + imagePreviews.length}/5)
-                                </span>
-                                {uploadingImages && (
-                                    <span className="text-xs text-teal-600">Uploading...</span>
-                                )}
+                {/* Bulk Mode Toggle - only for new items */}
+                {!initialData && (
+                    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-sm border border-stone-200 dark:border-zinc-800 mb-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <span className="font-medium text-sm text-stone-900 dark:text-zinc-100">Bulk Upload</span>
+                                <p className="text-xs text-stone-500 dark:text-zinc-400">Mehrere gleiche Artikel anlegen</p>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsBulkMode(!isBulkMode)}
+                                className={`relative w-12 h-7 rounded-full transition-colors ${isBulkMode ? 'bg-stone-900 dark:bg-zinc-100' : 'bg-stone-200 dark:bg-zinc-700'}`}
+                            >
+                                <div className={`absolute top-1 w-5 h-5 rounded-full bg-white dark:bg-zinc-900 shadow-sm transition-transform ${isBulkMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                        </div>
 
-                            {/* Quick Action Buttons */}
-                            {(imageUrls.length + imagePreviews.length) < 5 && (
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => cameraInputRef.current?.click()}
-                                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-900 dark:bg-white text-white dark:text-black rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
-                                    >
-                                        <Camera className="w-4 h-4" />
-                                        Kamera
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => galleryInputRef.current?.click()}
-                                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white border border-stone-200 dark:border-stone-700 rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
-                                    >
-                                        <ImageIcon className="w-4 h-4" />
-                                        Galerie
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Images Grid */}
-                            <div className="grid grid-cols-3 gap-3">
-                                {/* Existing uploaded images */}
-                                {imageUrls.map((url, idx) => (
-                                    <div key={`existing-${idx}`} className="relative aspect-square bg-stone-100 dark:bg-stone-800 rounded-2xl overflow-hidden group">
-                                        <img src={url} className="w-full h-full object-cover" alt={`Image ${idx + 1}`} />
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveExistingImage(idx)}
-                                            className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
+                        {isBulkMode && (
+                            <div className="mt-4 pt-4 border-t border-stone-100 dark:border-zinc-800">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-semibold text-stone-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Anzahl</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="50"
+                                            value={bulkQuantity}
+                                            onChange={(e) => setBulkQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                            className="w-full px-4 py-3 rounded-xl bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 focus:border-stone-400 dark:focus:border-zinc-500 outline-none font-bold text-lg text-center"
+                                        />
                                     </div>
-                                ))}
-
-                                {/* Pending preview images */}
-                                {imagePreviews.map((preview, idx) => (
-                                    <div key={`preview-${idx}`} className="relative aspect-square bg-stone-100 dark:bg-stone-800 rounded-2xl overflow-hidden group border-2 border-dashed border-teal-400">
-                                        <img src={preview} className="w-full h-full object-cover" alt={`Preview ${idx + 1}`} />
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemovePendingImage(idx)}
-                                            className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                        <div className="absolute bottom-2 left-2 text-[10px] bg-teal-500 text-white px-2 py-0.5 rounded-full font-bold">
-                                            NEU
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-semibold text-stone-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Preis pro Stück</label>
+                                        <div className="px-4 py-3 rounded-xl bg-stone-100 dark:bg-zinc-800/50 text-center">
+                                            <span className="font-bold text-lg text-stone-900 dark:text-zinc-100">
+                                                {((formData.purchasePriceEur || 0) / bulkQuantity).toFixed(2)} €
+                                            </span>
                                         </div>
                                     </div>
-                                ))}
-
-                                {/* Add more button */}
-                                {(imageUrls.length + imagePreviews.length) < 5 && (
-                                    <label className="aspect-square bg-stone-50 dark:bg-stone-900 rounded-2xl border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-600 cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors">
-                                        <ImageIcon className="w-6 h-6 text-stone-400" />
-                                        <span className="text-[10px] text-stone-500 dark:text-stone-400 font-medium">Hinzufügen</span>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            className="hidden"
-                                            onChange={handleFileChange}
-                                        />
-                                    </label>
-                                )}
+                                </div>
+                                <p className="text-xs text-stone-400 dark:text-zinc-500 mt-3 text-center">
+                                    Der Einkaufspreis wird durch {bulkQuantity} geteilt
+                                </p>
+                                <p className="text-xs text-stone-400 dark:text-zinc-500 mt-1 text-center">
+                                    Bild-Logik: 1 Bild pro Artikel (Reihenfolge wird eingehalten)
+                                </p>
                             </div>
+                        )}
+                    </div>
+                )}
 
-                            {/* Hidden inputs for camera/gallery (kept for compatibility) */}
-                            <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileChange} />
-                            <input type="file" accept="image/*" className="hidden" ref={galleryInputRef} onChange={handleFileChange} />
+                {/* IMAGES SECTION */}
+                <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] shadow-sm border border-stone-200 dark:border-zinc-800 mb-6">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm text-stone-600 dark:text-stone-300">
+                                Fotos ({imageUrls.length + imagePreviews.length}/{isBulkMode ? bulkQuantity : 5})
+                            </span>
+                            {uploadingImages && (
+                                <span className="text-xs text-stone-500">Uploading...</span>
+                            )}
                         </div>
-                    </div>
 
-                    <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-6">Öffentliche Details (Showroom)</h3>
+                        {/* Quick Action Buttons */}
+                        {(imageUrls.length + imagePreviews.length) < (isBulkMode ? bulkQuantity : 5) && (
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => cameraInputRef.current?.click()}
+                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-900 dark:bg-white text-white dark:text-black rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
+                                >
+                                    <Camera className="w-4 h-4" />
+                                    Kamera
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => galleryInputRef.current?.click()}
+                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-100 dark:bg-zinc-800 text-stone-900 dark:text-white border border-stone-200 dark:border-zinc-700 rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
+                                >
+                                    <ImageIcon className="w-4 h-4" />
+                                    Galerie
+                                </button>
+                            </div>
+                        )}
 
-                    <div className="mb-6">
-                        <Input
-                            label="Angebotspreis (€)"
-                            type="number"
-                            inputMode="decimal"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={formData.salePriceEur === 0 ? '' : formData.salePriceEur}
-                            onChange={(e: any) => handleChange('salePriceEur', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                            required
-                        />
+                        {/* Images Grid */}
+                        <div className="grid grid-cols-3 gap-3">
+                            {imageUrls.map((url, idx) => (
+                                <div key={`existing-${idx}`} className="relative aspect-square bg-stone-100 dark:bg-zinc-800 rounded-2xl overflow-hidden group">
+                                    <img src={url} className="w-full h-full object-cover" alt={`Image ${idx + 1}`} />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveExistingImage(idx)}
+                                        className="absolute top-2 right-2 w-7 h-7 bg-stone-900 dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+
+                            {imagePreviews.map((preview, idx) => (
+                                <div key={`preview-${idx}`} className="relative aspect-square bg-stone-100 dark:bg-zinc-800 rounded-2xl overflow-hidden group border-2 border-dashed border-stone-400 dark:border-zinc-600">
+                                    <img src={preview} className="w-full h-full object-cover" alt={`Preview ${idx + 1}`} />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemovePendingImage(idx)}
+                                        className="absolute top-2 right-2 w-7 h-7 bg-stone-900 dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                    <div className="absolute bottom-2 left-2 text-[10px] bg-stone-900 dark:bg-white text-white dark:text-black px-2 py-0.5 rounded-full font-bold">
+                                        NEU
+                                    </div>
+                                </div>
+                            ))}
+
+                            {(imageUrls.length + imagePreviews.length) < (isBulkMode ? bulkQuantity : 5) && (
+                                <label className="aspect-square bg-stone-50 dark:bg-zinc-800 rounded-2xl border-2 border-dashed border-stone-300 dark:border-zinc-700 hover:border-stone-400 dark:hover:border-zinc-600 cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors">
+                                    <ImageIcon className="w-6 h-6 text-stone-400 dark:text-zinc-500" />
+                                    <span className="text-[10px] text-stone-500 dark:text-zinc-400 font-medium">Hinzufügen</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                    />
+                                </label>
+                            )}
+                        </div>
+
+                        <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileChange} />
+                        <input type="file" accept="image/*" className="hidden" ref={galleryInputRef} onChange={handleFileChange} />
                     </div>
+                </div>
+
+                {/* CORE DATA SECTION */}
+                <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] shadow-sm border border-stone-200 dark:border-zinc-800 mb-6">
+                    <h3 className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-6">Artikel Details</h3>
 
                     <Select
                         label="Marke"
@@ -337,27 +409,37 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                     </div>
                 </div>
 
-                {/* PRIVATE SECTION */}
-                <div className="bg-stone-50 dark:bg-stone-900 p-6 rounded-[2rem] border border-red-100 dark:border-red-900/20 mb-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">
-                        Internal / Private
-                    </div>
-
-                    <h3 className="text-xs font-bold text-red-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                        Vertrauliche Daten
-                    </h3>
+                {/* FINANCIALS SECTION */}
+                <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] shadow-sm border border-stone-200 dark:border-zinc-800 mb-6">
+                    <h3 className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-6">Finanzen & Einkauf</h3>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Input
-                            label="Einkaufspreis (€)"
-                            type="number"
-                            inputMode="decimal"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={formData.purchasePriceEur === 0 ? '' : formData.purchasePriceEur}
-                            onChange={(e: any) => handleChange('purchasePriceEur', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                            required
-                        />
+                        <div className={isBulkMode ? "col-span-2" : ""}>
+                            <Input
+                                label={isBulkMode ? "Gesamteinkaufspreis (€)" : "Einkaufspreis (€)"}
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={formData.purchasePriceEur === 0 ? '' : formData.purchasePriceEur}
+                                onChange={(e: any) => handleChange('purchasePriceEur', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                                required
+                            />
+                        </div>
+                        {!isBulkMode && (
+                            <Input
+                                label="Zielpreis / VK (€)"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={formData.salePriceEur === 0 ? '' : formData.salePriceEur}
+                                onChange={(e: any) => handleChange('salePriceEur', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                            />
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
                         <Input
                             label="Einkaufsdatum"
                             type="date"
@@ -365,24 +447,24 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                             onChange={(e: any) => handleChange('purchaseDate', e.target.value)}
                             required
                         />
-                    </div>
-
-                    <Input
-                        label="Einkaufsquelle"
-                        placeholder="z.B. Vinted, Japan Auction..."
-                        value={formData.purchaseSource}
-                        onChange={(e: any) => handleChange('purchaseSource', e.target.value)}
-                    />
-
-                    <div className="pt-2">
-                        <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2 ml-1">Interne Notizen</label>
-                        <textarea
-                            className="w-full px-4 py-3.5 rounded-2xl bg-white border-0 focus:ring-1 focus:ring-stone-800 outline-none transition-colors min-h-[100px] text-sm font-medium shadow-sm"
-                            placeholder="Mängel, Besonderheiten, Realitäts-Check..."
-                            value={formData.notes}
-                            onChange={(e: any) => handleChange('notes', e.target.value)}
+                        <Input
+                            label="Einkaufsquelle"
+                            placeholder="z.B. Vinted"
+                            value={formData.purchaseSource}
+                            onChange={(e: any) => handleChange('purchaseSource', e.target.value)}
                         />
                     </div>
+                </div>
+
+                {/* NOTES SECTION */}
+                <div className="bg-white dark:bg-zinc-900 p-6 rounded-[2rem] shadow-sm border border-stone-200 dark:border-zinc-800 mb-6">
+                    <h3 className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-4">Notizen</h3>
+                    <textarea
+                        className="w-full px-4 py-3.5 rounded-2xl bg-stone-50 dark:bg-zinc-800 border border-stone-200 dark:border-zinc-700 focus:border-stone-400 dark:focus:border-zinc-500 outline-none transition-colors min-h-[100px] text-sm font-medium"
+                        placeholder="Mängel, Besonderheiten, etc..."
+                        value={formData.notes}
+                        onChange={(e: any) => handleChange('notes', e.target.value)}
+                    />
                 </div>
 
                 {/* SOLD SECTION (Only visible if item is sold) */}
@@ -425,7 +507,11 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
 
                 <Button type="submit" className="w-full shadow-2xl shadow-stone-900/20" disabled={isSubmitting || uploadingImages} loading={isSubmitting || uploadingImages}>
                     <Save className="w-4 h-4 mr-2" />
-                    {initialData ? 'Änderungen speichern' : 'Artikel anlegen'}
+                    {initialData
+                        ? 'Änderungen speichern'
+                        : isBulkMode && bulkQuantity > 1
+                            ? `${bulkQuantity} Artikel anlegen`
+                            : 'Artikel anlegen'}
                 </Button>
             </form>
         </FadeIn>

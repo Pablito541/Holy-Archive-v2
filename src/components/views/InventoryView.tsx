@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Search, ShoppingBag, Tag, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Item, ItemStatus } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 import { PullToRefresh } from '../ui/PullToRefresh';
 
-export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh = async () => { }, filter, onFilterChange }: {
+export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh = async () => { }, filter, onFilterChange, searchQuery, onSearchChange }: {
     items: Item[], onSelectItem: (id: string) => void;
     onLoadMore?: () => void;
     hasMore?: boolean;
@@ -13,8 +13,9 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
     onRefresh?: () => Promise<void>;
     filter: ItemStatus;
     onFilterChange: (filter: ItemStatus) => void;
+    searchQuery: string;
+    onSearchChange: (query: string) => void;
 }) => {
-    const [searchQuery, setSearchQuery] = useState('');
 
     const filteredItems = useMemo(() => {
         let result = items.filter(i => {
@@ -69,7 +70,7 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
                                 type="text"
                                 placeholder="Suche Marke, Modell, ID..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => onSearchChange(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 focus:border-stone-800 dark:focus:border-zinc-600 outline-none transition-all placeholder:text-stone-300 dark:placeholder:text-zinc-600 font-medium text-sm dark:text-zinc-50"
                             />
                         </div>
