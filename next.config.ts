@@ -8,7 +8,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 const nextConfig = {
   typescript: {
     // Warnung: Dies erlaubt den Build auch bei TypeScript-Fehlern
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     remotePatterns: [

@@ -380,6 +380,39 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
         }
     };
 
+    const handleCancelSale = async (id: string) => {
+        if (!confirm('Verkauf wirklich stornieren? Der Artikel wird wieder als "Im Lager" markiert.')) return;
+
+        try {
+            if (supabase) {
+                const { error } = await supabase.from('items').update({
+                    status: 'in_stock',
+                    sale_price_eur: null,
+                    sale_date: null,
+                    sale_channel: null,
+                    platform_fees_eur: null,
+                    shipping_cost_eur: null
+                }).eq('id', id);
+                if (error) throw error;
+            }
+
+            setItems(prev => prev.map(item => item.id === id ? {
+                ...item,
+                status: 'in_stock',
+                salePriceEur: undefined,
+                saleDate: undefined,
+                saleChannel: undefined,
+                platformFeesEur: undefined,
+                shippingCostEur: undefined
+            } : item));
+            fetchStats(); // Update stats since revenue/profit changed
+            showToast('Verkauf storniert', 'success');
+        } catch (e) {
+            console.error('Error canceling sale:', e);
+            showToast('Fehler beim Stornieren des Verkaufs', 'error');
+        }
+    };
+
     const handleLogout = async () => {
         if (supabase) await supabase.auth.signOut();
         setUser(null);
@@ -465,6 +498,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                     onDelete={() => handleDeleteItem(selectedItemId)}
                     onReserve={handleReserveItem}
                     onCancelReservation={() => handleCancelReservation(selectedItemId)}
+                    onCancelSale={() => handleCancelSale(selectedItemId)}
                     onEdit={() => setView('edit-item')}
                 />
             );

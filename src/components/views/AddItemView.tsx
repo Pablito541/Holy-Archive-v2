@@ -5,8 +5,9 @@ import { FadeIn } from '../ui/FadeIn';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
-import { supabase } from '../../lib/supabase';
+
 import { BRANDS, CATEGORIES, CONDITIONS, SALES_CHANNELS } from '../../constants';
+import { useImageUpload } from '../../hooks/useImageUpload';
 
 export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: Partial<Item>) => void, onCancel: () => void, initialData?: Item }) => {
     const [formData, setFormData] = useState<Partial<Item>>(initialData || {
@@ -23,147 +24,29 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [uploadingImages, setUploadingImages] = useState(false);
 
     // Bulk upload mode
     const [isBulkMode, setIsBulkMode] = useState(false);
     const [bulkQuantity, setBulkQuantity] = useState(1);
 
-    // Multiple image URLs state (existing + new)
-    const [imageUrls, setImageUrls] = useState<string[]>(initialData?.imageUrls || []);
-    const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-
-    const cameraInputRef = useRef<HTMLInputElement>(null);
-    const galleryInputRef = useRef<HTMLInputElement>(null);
+    const {
+        imageUrls,
+        setImageUrls,
+        pendingFiles,
+        imagePreviews,
+        uploading: uploadingImages,
+        handleFileChange,
+        handleRemoveExistingImage,
+        handleRemovePendingImage,
+        uploadAllImages,
+        reset: resetImages
+    } = useImageUpload({
+        initialImageUrls: initialData?.imageUrls || [],
+        isBulkMode,
+        bulkQuantity
+    });
 
     const [isLoaded, setIsLoaded] = useState(false);
-
-    // Load saved data on mount
-    useEffect(() => {
-        if (!initialData) {
-            const savedData = localStorage.getItem('add_item_draft');
-            if (savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    // Merge with defaults to ensure all fields exist
-                    setFormData(prev => ({ ...prev, ...parsed }));
-                } catch (e) {
-                    console.error('Failed to parse draft', e);
-                }
-            }
-            setIsLoaded(true);
-        }
-    }, [initialData]);
-
-    // Save data only when loaded and changed
-    useEffect(() => {
-        if (!initialData && isLoaded) {
-            // We don't save the image file in local storage draft, just the text fields
-            // For the image, we check if there are imageUrls already.
-            localStorage.setItem('add_item_draft', JSON.stringify(formData));
-        }
-    }, [formData, isLoaded, initialData]);
-
-    const handleChange = (field: keyof Item, value: any) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-
-        const maxImages = isBulkMode ? bulkQuantity : 5;
-        const totalImages = imageUrls.length + imagePreviews.length + files.length;
-        if (totalImages > maxImages) {
-            alert(`Maximal ${maxImages} Bilder erlaubt`);
-            return;
-        }
-
-        const newFiles: File[] = [];
-        const newPreviews: string[] = [];
-
-        for (let i = 0; i < files.length && i < (maxImages - imageUrls.length - imagePreviews.length); i++) {
-            const file = files[i];
-            newFiles.push(file);
-
-            // Create preview
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                newPreviews.push(reader.result as string);
-                if (newPreviews.length === newFiles.length) {
-                    setImagePreviews(prev => [...prev, ...newPreviews]);
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        setPendingFiles(prev => [...prev, ...newFiles]);
-        e.target.value = ''; // Reset input
-    };
-
-    const handleRemoveExistingImage = (index: number) => {
-        setImageUrls(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleRemovePendingImage = (index: number) => {
-        setImagePreviews(prev => prev.filter((_, i) => i !== index));
-        setPendingFiles(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const uploadAllImages = async (): Promise<string[]> => {
-        if (pendingFiles.length === 0) return imageUrls;
-
-        if (!supabase) {
-            console.warn('Supabase not initialized');
-            return imageUrls;
-        }
-
-        setUploadingImages(true);
-        const uploadedUrls: string[] = [];
-
-        try {
-            for (const file of pendingFiles) {
-                // Compress image
-                const options = {
-                    maxSizeMB: 0.3,
-                    maxWidthOrHeight: 1920,
-                    useWebWorker: true
-                };
-
-                let fileToUpload = file;
-                try {
-                    const imageCompression = (await import('browser-image-compression')).default;
-                    const compressedFile = await imageCompression(file, options);
-                    fileToUpload = compressedFile;
-                } catch (error) {
-                    console.error('Compression failed:', error);
-                }
-
-                const fileExt = fileToUpload.name.split('.').pop();
-                const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('images')
-                    .upload(fileName, fileToUpload);
-
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('images')
-                    .getPublicUrl(fileName);
-
-                uploadedUrls.push(publicUrl);
-            }
-
-            return [...imageUrls, ...uploadedUrls];
-        } catch (error) {
-            console.error('Error uploading images:', error);
-            throw error;
-        } finally {
-            setUploadingImages(false);
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -213,6 +96,8 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                 await onSave({ ...formData, imageUrls: finalImageUrls });
                 if (!initialData) {
                     localStorage.removeItem('add_item_draft');
+                    // Reset images after successful add
+                    resetImages();
                 }
             }
         } catch (error) {
@@ -220,6 +105,34 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
             alert('Fehler beim Speichern. Bitte erneut versuchen.');
             setIsSubmitting(false);
         }
+    };
+
+    // Load saved data on mount
+    useEffect(() => {
+        if (!initialData) {
+            const savedData = localStorage.getItem('add_item_draft');
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    // Merge with defaults to ensure all fields exist
+                    setFormData(prev => ({ ...prev, ...parsed }));
+                } catch (e) {
+                    console.error('Failed to parse draft', e);
+                }
+            }
+            setIsLoaded(true);
+        }
+    }, [initialData]);
+
+    // Save data only when loaded and changed
+    useEffect(() => {
+        if (!initialData && isLoaded) {
+            localStorage.setItem('add_item_draft', JSON.stringify(formData));
+        }
+    }, [formData, isLoaded, initialData]);
+
+    const handleChange = (field: keyof Item, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
     };
 
     return (
@@ -301,28 +214,6 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                             )}
                         </div>
 
-                        {/* Quick Action Buttons */}
-                        {(imageUrls.length + imagePreviews.length) < (isBulkMode ? bulkQuantity : 5) && (
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => cameraInputRef.current?.click()}
-                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-900 dark:bg-white text-white dark:text-black rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
-                                >
-                                    <Camera className="w-4 h-4" />
-                                    Kamera
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => galleryInputRef.current?.click()}
-                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-100 dark:bg-zinc-800 text-stone-900 dark:text-white border border-stone-200 dark:border-zinc-700 rounded-2xl font-medium text-sm hover:scale-[1.02] transition-transform"
-                                >
-                                    <ImageIcon className="w-4 h-4" />
-                                    Galerie
-                                </button>
-                            </div>
-                        )}
-
                         {/* Images Grid */}
                         <div className="grid grid-cols-3 gap-3">
                             {imageUrls.map((url, idx) => (
@@ -368,9 +259,6 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                                 </label>
                             )}
                         </div>
-
-                        <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileChange} />
-                        <input type="file" accept="image/*" className="hidden" ref={galleryInputRef} onChange={handleFileChange} />
                     </div>
                 </div>
 
@@ -393,7 +281,7 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                         onChange={(e: any) => handleChange('model', e.target.value)}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-6">
                         <Select
                             label="Kategorie"
                             options={CATEGORIES}
@@ -414,7 +302,7 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                     <h3 className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-6">Finanzen & Einkauf</h3>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className={isBulkMode ? "col-span-2" : ""}>
+                        <div className="col-span-2">
                             <Input
                                 label={isBulkMode ? "Gesamteinkaufspreis (€)" : "Einkaufspreis (€)"}
                                 type="number"
@@ -426,20 +314,9 @@ export const AddItemView = ({ onSave, onCancel, initialData }: { onSave: (item: 
                                 required
                             />
                         </div>
-                        {!isBulkMode && (
-                            <Input
-                                label="Zielpreis / VK (€)"
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={formData.salePriceEur === 0 ? '' : formData.salePriceEur}
-                                onChange={(e: any) => handleChange('salePriceEur', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                            />
-                        )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-6">
                         <Input
                             label="Einkaufsdatum"
                             type="date"

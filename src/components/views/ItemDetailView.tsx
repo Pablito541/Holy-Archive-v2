@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ArrowLeft, ZoomIn, Clock, Trash2, ShoppingBag, Edit2, Share2 } from 'lucide-react';
+import { X, ArrowLeft, ZoomIn, Clock, Trash2, ShoppingBag, Edit2, Share2, RotateCcw } from 'lucide-react';
 import { Item, Condition } from '../../types';
 import { calculateProfit, formatCurrency, formatDate, conditionLabels } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
@@ -7,13 +7,14 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { StatusBadge } from '../ui/StatusBadge';
 
-export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCancelReservation, onEdit }: {
+export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCancelReservation, onCancelSale, onEdit }: {
     item: Item,
     onBack: () => void,
     onSell: () => void,
     onDelete: () => void,
     onReserve: (id: string, name: string, days: number) => void,
     onCancelReservation?: () => void,
+    onCancelSale?: () => void,
     onEdit?: () => void
 }) => {
     const profit = calculateProfit(item);
@@ -107,7 +108,9 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                         <div className="relative z-10">
                             <div className="flex justify-between items-center mb-4 opacity-80 text-sm">
                                 <span>Verkauf am {formatDate(item.saleDate || '')}</span>
-                                <span>{item.saleChannel}</span>
+                                <div>
+                                    <span className="mr-3">{item.saleChannel}</span>
+                                </div>
                             </div>
                             <div className="flex justify-between items-end border-t border-white/20 pt-4">
                                 <span className="text-xs font-bold uppercase tracking-widest text-stone-400">Reingewinn</span>
@@ -178,16 +181,23 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                                     Reservieren
                                 </Button>
                             )}
-                            <Button onClick={onSell} className="flex-1 shadow-xl shadow-stone-900/20">
+                            <button onClick={onSell} className="flex-1 px-6 py-3.5 rounded-2xl font-medium flex items-center justify-center gap-2 text-sm tracking-wide bg-emerald-600 text-white shadow-xl shadow-emerald-900/20 hover:bg-emerald-500 hover:shadow-2xl transition-all duration-300 active:scale-[0.98]">
                                 Verkauf erfassen
-                            </Button>
+                            </button>
                         </div>
                     )}
 
-                    <Button onClick={onDelete} variant="ghost" className="w-full text-red-400 hover:text-red-600 hover:bg-red-50">
-                        <Trash2 className="w-4 h-4 mr-2" />
+                    {item.status === 'sold' && onCancelSale && (
+                        <button onClick={onCancelSale} className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-medium text-amber-500 hover:text-amber-300 transition-colors active:scale-[0.98]">
+                            <RotateCcw className="w-4 h-4" />
+                            Verkauf stornieren
+                        </button>
+                    )}
+
+                    <button onClick={onDelete} className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-medium text-red-400 hover:text-red-300 transition-colors active:scale-[0.98]">
+                        <Trash2 className="w-4 h-4" />
                         Artikel aus Datenbank löschen
-                    </Button>
+                    </button>
                 </div>
             </div>
         </FadeIn>
