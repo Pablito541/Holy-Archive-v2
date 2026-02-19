@@ -21,7 +21,7 @@ export const Input = ({ label, icon, error, className = '', ...props }: InputPro
                     </div>
                 )}
                 <input
-                    className={`w-full ${icon ? 'pl-12' : 'px-4'} pr-4 py-3.5 bg-white border border-stone-200 rounded-2xl 
+                    className={`w-full ${icon ? 'pl-12' : 'px-4'} pr-4 py-2.5 bg-white border border-stone-200 rounded-2xl 
                         text-stone-900 placeholder-stone-400 
                         focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent
                         transition-all duration-300

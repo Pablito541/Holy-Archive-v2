@@ -19,6 +19,7 @@ export interface Item {
     saleChannel?: string;
     platformFeesEur?: number;
     shippingCostEur?: number;
+    buyer?: string;
 
     reservedFor?: string;
     reservedUntil?: string;

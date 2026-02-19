@@ -155,8 +155,17 @@ export const ItemDetailView = ({ item, onBack, onSell, onDelete, onReserve, onCa
                         <p className="font-medium text-stone-900 dark:text-white truncate">{item.purchaseSource}</p>
                     </div>
                     <div className="p-5 bg-stone-50 dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800">
-                        <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Zustand</p>
-                        <p className="font-medium capitalize text-stone-900 dark:text-white">{conditionLabels[item.condition as Condition] || item.condition}</p>
+                        {item.status === 'sold' ? (
+                            <>
+                                <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Verkaufspreis</p>
+                                <p className="font-mono text-lg font-semibold text-stone-900 dark:text-white">{formatCurrency(item.salePriceEur || 0)}</p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Zustand</p>
+                                <p className="font-medium capitalize text-stone-900 dark:text-white">{conditionLabels[item.condition as Condition] || item.condition}</p>
+                            </>
+                        )}
                     </div>
                     <div className="p-5 bg-stone-50 dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800">
                         <p className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest mb-1">Kaufdatum</p>

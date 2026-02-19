@@ -1,25 +1,31 @@
 import React, { useMemo, useEffect } from 'react';
-import { Search, ShoppingBag, Tag, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Search, ShoppingBag, Tag, ArrowRight, ArrowLeft, CheckSquare, Square, X } from 'lucide-react';
 import { Item, ItemStatus } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { FadeIn } from '../ui/FadeIn';
 import { PullToRefresh } from '../ui/PullToRefresh';
 
-export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh = async () => { }, filter, onFilterChange, searchQuery, onSearchChange }: {
+export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, hasMore, onRefresh = async () => { }, filter, onFilterChange, searchQuery, onSearchChange, selectedItemIds, onToggleItemSelection, onBulkSellStart, onExitBulkSelect }: {
     items: Item[], onSelectItem: (id: string) => void;
     onLoadMore?: () => void;
     hasMore?: boolean;
-    selectionMode?: 'sell' | 'view';
+    selectionMode?: 'sell' | 'view' | 'bulk_sell';
     onRefresh?: () => Promise<void>;
     filter: ItemStatus;
     onFilterChange: (filter: ItemStatus) => void;
     searchQuery: string;
     onSearchChange: (query: string) => void;
+    selectedItemIds?: Set<string>;
+    onToggleItemSelection?: (id: string) => void;
+    onBulkSellStart?: () => void;
+    onExitBulkSelect?: () => void;
 }) => {
 
     const filteredItems = useMemo(() => {
         let result = items.filter(i => {
-            const statusMatches = i.status === filter;
+            // In bulk_sell mode, only show in_stock items
+            const targetStatus = selectionMode === 'bulk_sell' ? 'in_stock' : filter;
+            const statusMatches = i.status === targetStatus;
             const query = searchQuery.toLowerCase();
             const searchMatches = !query ||
                 i.brand.toLowerCase().includes(query) ||
@@ -40,13 +46,16 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
         }
 
         return result;
-    }, [items, filter, searchQuery]);
+    }, [items, filter, searchQuery, selectionMode]);
 
     useEffect(() => {
-        if (selectionMode === 'sell') {
+        if (selectionMode === 'sell' || selectionMode === 'bulk_sell') {
             onFilterChange('in_stock');
         }
     }, [selectionMode]);
+
+    const isBulkSelect = selectionMode === 'bulk_sell';
+    const selectedCount = selectedItemIds?.size || 0;
 
     return (
         <FadeIn className="pb-32 h-full flex flex-col max-w-7xl mx-auto">
@@ -57,6 +66,21 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
                             <div className="bg-stone-900 dark:bg-zinc-900 text-white p-4 rounded-2xl mb-4 shadow-xl shadow-stone-900/10 dark:shadow-zinc-950/50">
                                 <h2 className="text-xs font-bold uppercase tracking-widest text-stone-400 dark:text-zinc-500 mb-1">Verkauf erfassen</h2>
                                 <p className="font-serif font-bold text-xl">Wähle einen Artikel</p>
+                            </div>
+                        ) : isBulkSelect ? (
+                            <div className="bg-stone-900 dark:bg-zinc-900 text-white p-4 rounded-2xl mb-4 shadow-xl shadow-stone-900/10 dark:shadow-zinc-950/50">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-xs font-bold uppercase tracking-widest text-stone-400 dark:text-zinc-500 mb-1">Sammelverkauf</h2>
+                                        <p className="font-serif font-bold text-xl">Artikel auswählen</p>
+                                    </div>
+                                    <button
+                                        onClick={onExitBulkSelect}
+                                        className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <h1 className="text-3xl font-serif font-bold text-stone-900 dark:text-zinc-50 mb-6">Inventar</h1>
@@ -75,7 +99,7 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
                             />
                         </div>
 
-                        {selectionMode !== 'sell' && (
+                        {selectionMode !== 'sell' && !isBulkSelect && (
                             <div className="flex p-1 bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-800 rounded-2xl shadow-sm">
                                 {(['in_stock', 'sold', 'reserved'] as const).map(status => (
                                     <button
@@ -100,48 +124,73 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
                                 <p className="text-sm font-medium">Keine Ergebnisse.</p>
                             </div>
                         ) : (
-                            filteredItems.map(item => (
-                                <div
-                                    key={item.id}
-                                    onClick={() => onSelectItem(item.id)}
-                                    className="group bg-white dark:bg-zinc-900 rounded-3xl p-3 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-zinc-950/50 border border-stone-200 dark:border-zinc-800 flex items-start active:scale-[0.98] transition-all cursor-pointer hover:shadow-lg"
-                                >
-                                    <div className="w-24 h-24 bg-stone-100 dark:bg-zinc-800 rounded-2xl mr-4 flex-shrink-0 relative overflow-hidden">
-                                        {item.imageUrls && item.imageUrls.length > 0 ? (
-                                            <img src={item.imageUrls[0]} alt={item.model} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                                        ) : (
-                                            <div className="flex items-center justify-center h-full text-stone-300 dark:text-stone-600">
-                                                <ShoppingBag className="w-8 h-8 opacity-50" />
+                            filteredItems.map(item => {
+                                const isSelected = isBulkSelect && selectedItemIds?.has(item.id);
+                                return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => {
+                                            if (isBulkSelect && onToggleItemSelection) {
+                                                onToggleItemSelection(item.id);
+                                            } else {
+                                                onSelectItem(item.id);
+                                            }
+                                        }}
+                                        className={`group bg-white dark:bg-zinc-900 rounded-3xl p-3 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-zinc-950/50 border flex items-start active:scale-[0.98] transition-all cursor-pointer hover:shadow-lg ${isSelected
+                                            ? 'border-emerald-500 dark:border-emerald-600 ring-2 ring-emerald-500/20 dark:ring-emerald-600/20'
+                                            : 'border-stone-200 dark:border-zinc-800'
+                                            }`}
+                                    >
+                                        {/* Checkbox for bulk select */}
+                                        {isBulkSelect && (
+                                            <div className="flex items-center justify-center w-8 h-24 mr-2 flex-shrink-0">
+                                                {isSelected ? (
+                                                    <CheckSquare className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                                ) : (
+                                                    <Square className="w-5 h-5 text-stone-300 dark:text-zinc-600" />
+                                                )}
                                             </div>
                                         )}
-                                        <div className="absolute bottom-0 left-0 right-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm px-2 py-1 text-center border-t border-white/50 dark:border-zinc-800/50">
-                                            <span className="text-[10px] font-bold text-stone-900 dark:text-zinc-50">
-                                                {formatCurrency(item.status === 'sold' ? (item.salePriceEur || 0) : item.purchasePriceEur)}
-                                            </span>
+
+                                        <div className="w-24 h-24 bg-stone-100 dark:bg-zinc-800 rounded-2xl mr-4 flex-shrink-0 relative overflow-hidden">
+                                            {item.imageUrls && item.imageUrls.length > 0 ? (
+                                                <img src={item.imageUrls[0]} alt={item.model} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                            ) : (
+                                                <div className="flex items-center justify-center h-full text-stone-300 dark:text-stone-600">
+                                                    <ShoppingBag className="w-8 h-8 opacity-50" />
+                                                </div>
+                                            )}
+                                            <div className="absolute bottom-0 left-0 right-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm px-2 py-1 text-center border-t border-white/50 dark:border-zinc-800/50">
+                                                <span className="text-[10px] font-bold text-stone-900 dark:text-zinc-50">
+                                                    {formatCurrency(item.status === 'sold' ? (item.salePriceEur || 0) : item.purchasePriceEur)}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 min-w-0 flex flex-col justify-between h-24 py-1">
+                                            <div>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="font-serif font-bold text-lg text-stone-900 dark:text-zinc-50 truncate pr-2">{item.brand}</span>
+                                                </div>
+                                                <p className="text-xs font-medium text-stone-500 dark:text-zinc-400 truncate uppercase tracking-wide">{item.model || item.category}</p>
+                                            </div>
+
+                                            <div className="flex justify-between items-end mt-auto">
+                                                <div className="flex items-center text-[10px] font-medium text-stone-400 dark:text-zinc-500 bg-stone-50 dark:bg-zinc-800 px-2 py-1 rounded-lg">
+                                                    <Tag className="w-3 h-3 mr-1.5" />
+                                                    {item.purchaseSource}
+                                                </div>
+
+                                                {!isBulkSelect && (
+                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${selectionMode === 'sell' ? 'bg-stone-900 dark:bg-zinc-800 text-white' : 'bg-stone-100 dark:bg-zinc-800 text-stone-400 dark:text-zinc-500 group-hover:bg-stone-900 dark:group-hover:bg-zinc-700 group-hover:text-white'}`}>
+                                                        {selectionMode === 'sell' ? <ArrowRight className="w-3 h-3" /> : <ArrowLeft className="w-3 h-3 rotate-180" />}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <div className="flex-1 min-w-0 flex flex-col justify-between h-24 py-1">
-                                        <div>
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className="font-serif font-bold text-lg text-stone-900 dark:text-zinc-50 truncate pr-2">{item.brand}</span>
-                                            </div>
-                                            <p className="text-xs font-medium text-stone-500 dark:text-zinc-400 truncate uppercase tracking-wide">{item.model || item.category}</p>
-                                        </div>
-
-                                        <div className="flex justify-between items-end mt-auto">
-                                            <div className="flex items-center text-[10px] font-medium text-stone-400 dark:text-zinc-500 bg-stone-50 dark:bg-zinc-800 px-2 py-1 rounded-lg">
-                                                <Tag className="w-3 h-3 mr-1.5" />
-                                                {item.purchaseSource}
-                                            </div>
-
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${selectionMode === 'sell' ? 'bg-stone-900 dark:bg-zinc-800 text-white' : 'bg-stone-100 dark:bg-zinc-800 text-stone-400 dark:text-zinc-500 group-hover:bg-stone-900 dark:group-hover:bg-zinc-700 group-hover:text-white'}`}>
-                                                {selectionMode === 'sell' ? <ArrowRight className="w-3 h-3" /> : <ArrowLeft className="w-3 h-3 rotate-180" />}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
 
@@ -158,6 +207,8 @@ export const InventoryView = ({ items, onSelectItem, selectionMode, onLoadMore, 
                     )}
                 </div>
             </PullToRefresh>
+
         </FadeIn >
     );
 };
+

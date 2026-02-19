@@ -11,6 +11,7 @@ import { DashboardView } from '../../components/views/DashboardView';
 import { InventoryView } from '../../components/views/InventoryView';
 import { AddItemView } from '../../components/views/AddItemView';
 import { SellItemView } from '../../components/views/SellItemView';
+import { BulkSellView } from '../../components/views/BulkSellView';
 import { ItemDetailView } from '../../components/views/ItemDetailView';
 import { ExportView } from '../../components/views/ExportView';
 import { ActionMenu } from '../../components/views/ActionMenu';
@@ -30,8 +31,9 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
     const [view, setView] = useState(initialUser ? 'dashboard' : 'login');
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
     const [showActionMenu, setShowActionMenu] = useState(false);
-    const [selectionMode, setSelectionMode] = useState<'view' | 'sell'>('view');
+    const [selectionMode, setSelectionMode] = useState<'view' | 'sell' | 'bulk_sell'>('view');
     const [inventoryFilter, setInventoryFilter] = useState<ItemStatus>('in_stock');
+    const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
     const [inventorySearchQuery, setInventorySearchQuery] = useState('');
 
     const [items, setItems] = useState<Item[]>(initialItems);
@@ -315,6 +317,85 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
         }
     };
 
+    const handleToggleItemSelection = (id: string) => {
+        setSelectedItemIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const handleBulkSell = async (data: { salePriceEur: number; saleDate: string; saleChannel: string; platformFeesEur: number; shippingCostEur: number; buyer: string }) => {
+        try {
+            if (!supabase) throw new Error('Supabase client not initialized');
+
+            const selectedItems = items.filter(i => selectedItemIds.has(i.id));
+            const count = selectedItems.length;
+            if (count === 0) return;
+
+            // Distribute price
+            const pricePerItem = Math.floor((data.salePriceEur * 100) / count) / 100;
+            const priceRemainder = Math.round((data.salePriceEur - pricePerItem * count) * 100) / 100;
+
+            const feesPerItem = Math.floor((data.platformFeesEur * 100) / count) / 100;
+            const feesRemainder = Math.round((data.platformFeesEur - feesPerItem * count) * 100) / 100;
+
+            const shippingPerItem = Math.floor((data.shippingCostEur * 100) / count) / 100;
+            const shippingRemainder = Math.round((data.shippingCostEur - shippingPerItem * count) * 100) / 100;
+
+            // Update each item in DB
+            for (let i = 0; i < selectedItems.length; i++) {
+                const item = selectedItems[i];
+                const isFirst = i === 0;
+
+                const { error } = await supabase.from('items').update({
+                    status: 'sold',
+                    sale_price_eur: isFirst ? pricePerItem + priceRemainder : pricePerItem,
+                    sale_date: data.saleDate,
+                    sale_channel: data.saleChannel,
+                    platform_fees_eur: isFirst ? feesPerItem + feesRemainder : feesPerItem,
+                    shipping_cost_eur: isFirst ? shippingPerItem + shippingRemainder : shippingPerItem,
+                    buyer: data.buyer || null
+                }).eq('id', item.id);
+
+                if (error) {
+                    console.error(`Error selling item ${item.id}:`, error);
+                    throw error;
+                }
+            }
+
+            // Update local state
+            setItems(prev => prev.map(item => {
+                if (!selectedItemIds.has(item.id)) return item;
+                const idx = selectedItems.findIndex(s => s.id === item.id);
+                const isFirst = idx === 0;
+                return {
+                    ...item,
+                    status: 'sold' as const,
+                    salePriceEur: isFirst ? pricePerItem + priceRemainder : pricePerItem,
+                    saleDate: data.saleDate,
+                    saleChannel: data.saleChannel,
+                    platformFeesEur: isFirst ? feesPerItem + feesRemainder : feesPerItem,
+                    shippingCostEur: isFirst ? shippingPerItem + shippingRemainder : shippingPerItem,
+                    buyer: data.buyer || undefined
+                };
+            }));
+
+            fetchStats();
+            showToast(`${count} Artikel als verkauft markiert`, 'success');
+            setSelectedItemIds(new Set());
+            setSelectionMode('view');
+            setView('inventory');
+        } catch (e: any) {
+            console.error('Error in bulk sell:', e);
+            showToast(`Fehler beim Sammelverkauf: ${e.message || 'Unbekannter Fehler'}`, 'error');
+        }
+    };
+
     const handleDeleteItem = async (id: string) => {
         if (!confirm('Wirklich löschen?')) return;
         try {
@@ -443,7 +524,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                     scrollPositionRef.current = window.scrollY;
                     setSelectedItemId(id);
                     setView('item-detail');
-                    window.scrollTo(0, 0); // Scroll to top for item detail view
+                    window.scrollTo(0, 0);
                 }}
                 selectionMode={selectionMode}
                 onLoadMore={handleLoadMore}
@@ -453,6 +534,19 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                 onFilterChange={setInventoryFilter}
                 searchQuery={inventorySearchQuery}
                 onSearchChange={setInventorySearchQuery}
+                selectedItemIds={selectedItemIds}
+                onToggleItemSelection={handleToggleItemSelection}
+                onBulkSellStart={() => {
+                    if (selectedItemIds.size === 0) {
+                        showToast('Bitte wähle mindestens einen Artikel aus', 'error');
+                        return;
+                    }
+                    setView('bulk-sell');
+                }}
+                onExitBulkSelect={() => {
+                    setSelectionMode('view');
+                    setSelectedItemIds(new Set());
+                }}
             />
         );
 
@@ -487,6 +581,19 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
             );
         }
 
+        if (view === 'bulk-sell' && selectedItemIds.size > 0) {
+            const bulkItems = items.filter(i => selectedItemIds.has(i.id));
+            return (
+                <BulkSellView
+                    items={bulkItems}
+                    onConfirm={handleBulkSell}
+                    onCancel={() => {
+                        setView('inventory');
+                    }}
+                />
+            );
+        }
+
         if (view === 'item-detail' && selectedItemId) {
             const item = items.find(i => i.id === selectedItemId);
             if (!item) return null;
@@ -513,7 +620,7 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
         <div className="min-h-screen font-sans text-stone-900 dark:text-zinc-50 pb-20">
             {renderContent()}
 
-            {view !== 'login' && (
+            {view !== 'login' && selectionMode !== 'bulk_sell' && (
                 <Navigation
                     currentView={view}
                     onNavigate={(v) => {
@@ -527,11 +634,38 @@ export default function DashboardClient({ initialUser, initialOrgId, initialItem
                 />
             )}
 
+            {selectionMode === 'bulk_sell' && (
+                <div className="fixed bottom-0 left-0 right-0 z-50 pb-safe">
+                    <div className="max-w-md mx-auto px-6 pb-6">
+                        <div className="bg-white/80 dark:bg-zinc-900/90 backdrop-blur-xl border border-stone-200 dark:border-zinc-800/50 rounded-[2rem] shadow-2xl shadow-stone-900/5 dark:shadow-black/40 px-5 py-3 flex items-center justify-between transition-all duration-300">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">Ausgewählt</span>
+                                <span className="font-serif font-bold text-lg text-stone-900 dark:text-zinc-50">{selectedItemIds.size} Artikel</span>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    if (selectedItemIds.size === 0) {
+                                        showToast('Bitte wähle mindestens einen Artikel aus', 'error');
+                                        return;
+                                    }
+                                    setView('bulk-sell');
+                                }}
+                                disabled={selectedItemIds.size === 0}
+                                className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all text-white font-bold text-sm px-6 py-2.5 rounded-2xl shadow-lg"
+                            >
+                                Verkauf starten
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showActionMenu && (
                 <ActionMenu
                     onClose={() => setShowActionMenu(false)}
                     onAddItem={() => { setShowActionMenu(false); setView('add-item'); }}
                     onSellItem={() => { setShowActionMenu(false); setView('inventory'); setSelectionMode('sell'); }}
+                    onBulkSellItem={() => { setShowActionMenu(false); setView('inventory'); setSelectionMode('bulk_sell'); setSelectedItemIds(new Set()); }}
                 />
             )}
         </div>
