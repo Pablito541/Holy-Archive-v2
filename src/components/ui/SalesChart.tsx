@@ -43,7 +43,7 @@ export const SalesChart = ({ serverData, months = 12 }: { serverData?: any[], mo
     };
 
     const minNetProfit = chartData.reduce((min, data) => Math.min(min, data.net_profit || 0), 0);
-    const yAxisDomain = minNetProfit < 0 ? ['auto', 'auto'] : [0, 'auto'];
+    const yAxisDomain = (minNetProfit < 0 ? ['auto', 'auto'] : [0, 'auto']) as any;
 
     return (
         <div className="w-full h-80 pt-4 -mx-2 sm:-mx-0">
