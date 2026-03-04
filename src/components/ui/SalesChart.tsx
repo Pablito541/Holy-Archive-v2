@@ -11,7 +11,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 
-export const SalesChart = ({ serverData, months = 12, type = 'revenue' }: { serverData?: any[], months?: number, type?: 'profit' | 'revenue' }) => {
+export const SalesChart = ({ serverData, months = 12 }: { serverData?: any[], months?: number }) => {
     const chartData = useMemo(() => {
         if (!serverData || serverData.length === 0) return [];
         return serverData.slice(-months);
@@ -43,20 +43,16 @@ export const SalesChart = ({ serverData, months = 12, type = 'revenue' }: { serv
     };
 
     return (
-        <div className="w-full h-80 pt-4">
+        <div className="w-full h-80 pt-4 -mx-2 sm:-mx-0">
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                     data={chartData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    margin={{ top: 10, right: 0, left: -25, bottom: 0 }}
                 >
                     <defs>
                         <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                             <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                         </linearGradient>
                         <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -76,45 +72,29 @@ export const SalesChart = ({ serverData, months = 12, type = 'revenue' }: { serv
                         tickLine={false}
                         tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
                         tick={{ fill: '#9ca3af', fontSize: 12 }}
-                        width={40}
                     />
                     <Tooltip content={<CustomTooltip />} />
 
-                    {type === 'revenue' ? (
-                        <>
-                            <Area
-                                type="monotone"
-                                dataKey="revenue"
-                                name="Einnahmen"
-                                stroke="#10b981"
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#colorRevenue)"
-                                activeDot={{ r: 6, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="expenses"
-                                name="Ausgaben"
-                                stroke="#ef4444"
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#colorExpenses)"
-                                activeDot={{ r: 6, fill: "#ef4444", stroke: "#fff", strokeWidth: 2 }}
-                            />
-                        </>
-                    ) : (
-                        <Area
-                            type="monotone"
-                            dataKey="net_profit"
-                            name="Reingewinn"
-                            stroke="#3b82f6"
-                            strokeWidth={2}
-                            fillOpacity={1}
-                            fill="url(#colorProfit)"
-                            activeDot={{ r: 6, fill: "#3b82f6", stroke: "#fff", strokeWidth: 2 }}
-                        />
-                    )}
+                    <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        name="Umsatz"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorRevenue)"
+                        activeDot={{ r: 6, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="net_profit"
+                        name="Reingewinn"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorProfit)"
+                        activeDot={{ r: 6, fill: "#3b82f6", stroke: "#fff", strokeWidth: 2 }}
+                    />
                 </AreaChart>
             </ResponsiveContainer>
         </div>

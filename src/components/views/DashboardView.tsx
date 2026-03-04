@@ -31,7 +31,8 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
     const [activeChannel, setActiveChannel] = useState<string | null>(null);
 
     const [activeAnalysis, setActiveAnalysis] = useState<'margin' | 'profit' | null>(null);
-    const [timeframe, setTimeframe] = useState<'month' | '3months' | 'all'>('month');
+    const [timeframe, setTimeframe] = useState<'month' | 'last_month' | '3months' | 'year' | 'all'>('month');
+    const [chartGrouping, setChartGrouping] = useState<'day' | 'week' | 'month'>('day');
     const { theme, setTheme } = useTheme();
 
     // Server-side stats state
@@ -65,7 +66,8 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                 const { data, error } = await supabase
                     .rpc('get_detailed_dashboard_stats', {
                         org_id: currentOrgId,
-                        filter_timeframe: timeframe
+                        filter_timeframe: timeframe,
+                        chart_grouping: chartGrouping
                     });
 
                 if (error) throw error;
@@ -105,7 +107,7 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
         };
 
         fetchStats();
-    }, [timeframe, currentOrgId, supabase]);
+    }, [timeframe, chartGrouping, currentOrgId, supabase]);
 
     // Derived display stats (Now just a passthrough from server stats)
     // We keep this variable name to minimize refactoring impact on the render section
@@ -216,27 +218,25 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                         </div>
 
                         {/* Timeframe Filter */}
-                        <div className="mb-6 flex flex-wrap gap-2 items-center">
+                        <div className="mb-6 flex flex-wrap gap-3 items-center">
                             <span className="text-xs font-bold text-stone-400 dark:text-zinc-500 uppercase tracking-widest">Zeitraum:</span>
-                            <div className="flex bg-stone-100 dark:bg-zinc-800 p-1 rounded-xl gap-1">
-                                <button
-                                    onClick={() => setTimeframe('month')}
-                                    className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${timeframe === 'month' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
+                            <div className="relative">
+                                <select
+                                    value={timeframe}
+                                    onChange={(e) => setTimeframe(e.target.value as any)}
+                                    className="appearance-none bg-stone-100 dark:bg-zinc-800 border border-transparent hover:border-stone-200 dark:hover:border-zinc-700 text-stone-700 dark:text-zinc-300 text-sm font-bold py-2 pl-4 pr-10 rounded-xl outline-none transition-colors cursor-pointer shadow-sm"
                                 >
-                                    Dieser Monat
-                                </button>
-                                <button
-                                    onClick={() => setTimeframe('3months')}
-                                    className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${timeframe === '3months' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
-                                >
-                                    Letzte 3 Monate
-                                </button>
-                                <button
-                                    onClick={() => setTimeframe('all')}
-                                    className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${timeframe === 'all' ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
-                                >
-                                    Gesamte Zeit
-                                </button>
+                                    <option value="month">Dieser Monat</option>
+                                    <option value="last_month">Letzter Monat</option>
+                                    <option value="3months">Letzte 3 Monate</option>
+                                    <option value="year">Dieses Jahr</option>
+                                    <option value="all">Alle</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-stone-500">
+                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                                    </svg>
+                                </div>
                             </div>
                         </div>
 
@@ -398,50 +398,29 @@ export const DashboardView = ({ items, onViewInventory, onAddItem, userEmail, on
                             </div>
                         )}
 
-                        {/* Charts in responsive grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            {/* Sales Chart (Revenue) */}
+                        {/* Unified Chart */}
+                        <div className="mb-6">
                             <Card className="p-6 bg-white dark:bg-zinc-900 border border-stone-100 dark:border-zinc-800 shadow-sm">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-stone-800 dark:text-zinc-200">Umsatzentwicklung</h3>
-                                    <div className="flex bg-stone-100 dark:bg-zinc-800 p-1 rounded-lg">
-                                        <button
-                                            onClick={() => setChartMonths(3)}
-                                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${chartMonths === 3 ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
+                                    <h3 className="font-bold text-stone-800 dark:text-zinc-200">Umsatz & Gewinn</h3>
+                                    <div className="relative">
+                                        <select
+                                            value={chartGrouping}
+                                            onChange={(e) => setChartGrouping(e.target.value as any)}
+                                            className="appearance-none bg-stone-100 dark:bg-zinc-800 border border-transparent hover:border-stone-200 dark:hover:border-zinc-700 text-stone-600 dark:text-zinc-400 text-xs font-semibold py-1.5 pl-3 pr-8 rounded-lg outline-none transition-colors cursor-pointer"
                                         >
-                                            3M
-                                        </button>
-                                        <button
-                                            onClick={() => setChartMonths(12)}
-                                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${chartMonths === 12 ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
-                                        >
-                                            1J
-                                        </button>
+                                            <option value="day">Tage</option>
+                                            <option value="week">Wochen</option>
+                                            <option value="month">Monate</option>
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-stone-500">
+                                            <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                                            </svg>
+                                        </div>
                                     </div>
                                 </div>
-                                <SalesChart serverData={displayStats.monthlyData} months={chartMonths} type="revenue" />
-                            </Card>
-
-                            {/* Profit Chart */}
-                            <Card className="p-6 bg-white dark:bg-zinc-900 border border-stone-100 dark:border-zinc-800 shadow-sm">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-stone-800 dark:text-zinc-200">Gewinnentwicklung</h3>
-                                    <div className="flex bg-stone-100 dark:bg-zinc-800 p-1 rounded-lg">
-                                        <button
-                                            onClick={() => setChartMonths(3)}
-                                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${chartMonths === 3 ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
-                                        >
-                                            3M
-                                        </button>
-                                        <button
-                                            onClick={() => setChartMonths(12)}
-                                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${chartMonths === 12 ? 'bg-white dark:bg-zinc-700 shadow-sm text-stone-900 dark:text-zinc-50' : 'text-stone-500 dark:text-zinc-400'}`}
-                                        >
-                                            1J
-                                        </button>
-                                    </div>
-                                </div>
-                                <SalesChart serverData={displayStats.monthlyData} months={chartMonths} type="profit" />
+                                <SalesChart serverData={displayStats.monthlyData} months={100} />
                             </Card>
                         </div>
 
